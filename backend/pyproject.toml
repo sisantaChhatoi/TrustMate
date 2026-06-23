@@ -4,4 +4,14 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "fastapi[standard]>=0.138.0",
+    "groq>=1.5.0",
+    "httpx>=0.28.1",
+    "livekit-agents>=1.6.3",
+    "livekit-api>=1.1.0",
+    "pymongo>=4.17.0",
+    "python-dotenv>=1.2.2",
+    "sarvamai>=0.1.28",
+    "websockets>=16.0",
+]

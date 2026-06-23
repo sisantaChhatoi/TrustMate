@@ -22,7 +22,7 @@ For production, assume a recorded-line disclosure is required.
 Two phones dial Twilio number
       │
       ▼
-Twilio TwiML <Conference>  ──SIP──►  LiveKit (media server + room)
+Twilio TwiML <Conference>  ──SIP──►  LiveKit Cloud (media server + room)
                                           │ dispatches job (room + token)
                                           ▼
                               Agent Worker  (process 1 — worker/agent.py)
@@ -54,12 +54,31 @@ Twilio TwiML <Conference>  ──SIP──►  LiveKit (media server + room)
 
 | Concern        | Choice                          | Notes |
 |----------------|----------------------------------|-------|
-| Telephony      | Twilio (trial number for demo)   | TwiML `<Conference>`, SIP trunk into LiveKit. US number for hackathon; Indian DID (Plivo/Exotel, KYC) is the production path. |
-| Media / agent  | LiveKit (self-host or Cloud)     | Agents framework (Python). Official Docker image. |
+| Telephony      | Twilio (trial number for demo)   | TwiML `<Conference>`, SIP trunk into LiveKit Cloud. Trunk + dispatch rule configured in LiveKit Cloud dashboard (Telephony → Configuration) or via `lk sip` CLI. US number for hackathon; Indian DID (Plivo/Exotel, KYC) is the production path. |
+| Media / agent  | LiveKit **Cloud** (free tier)    | Agents framework (Python). Cloud is the managed media server + room + SIP endpoint — no LiveKit container to run or ports to open. Worker connects out to the Cloud `wss://` URL. |
 | STT            | Sarvam **streaming** STT         | WebSocket, Saaras v3. Hinglish/code-mixing, diarization, <150ms first token. |
 | LLM (detector) | Groq — Llama 3.3 70B             | OpenAI-compatible API, fast, free tier. (Sarvam's LLM is a free Hinglish-native alternative.) |
 | Push           | Expo Push API → FCM              | Outbound HTTPS from server; works from localhost. |
-| Deploy         | Docker + docker-compose          | worker container + FastAPI container + LiveKit container. |
+| Storage        | MongoDB (Docker container)       | Persists call records, transcripts, detection results/alerts, device push tokens. Driver: `pymongo` async (`AsyncMongoClient`). Written by worker, read/served by FastAPI. |
+| Deploy         | Docker + docker-compose          | worker container + FastAPI container + MongoDB container. LiveKit is Cloud-hosted (no LiveKit container). FastAPI exposed via ngrok for Twilio webhook + browser token fetch. |
+
+## Python dependencies (single uv project — add at backend root)
+
+```bash
+uv add livekit-agents          # worker: cli.run_app + entrypoint, rtc audio frames
+uv add livekit-api             # server: mint access tokens
+uv add "fastapi[standard]"     # server: FastAPI + bundled uvicorn
+uv add websockets              # shared/sarvam_stt.py: Sarvam streaming STT WS client
+uv add httpx                   # server: Expo push call (+ outbound HTTP)
+uv add python-dotenv           # load backend/.env in both processes
+uv add pymongo                 # storage: AsyncMongoClient (worker writes, server reads)
+# groq — already present
+```
+
+- `pydantic` ships with FastAPI — reuse it in `detector.py` to validate the LLM JSON; don't add separately.
+- `pymongo` (not `motor`) — async support is now built into PyMongo via `AsyncMongoClient`; Motor reached end-of-life May 2026. No ODM (Beanie/MongoEngine) — pymongo + pydantic models is enough.
+- `numpy` — optional; `rtc.AudioResampler` already does the 48k→16k PCM resample Sarvam needs. Add only if manipulating raw samples.
+- `twilio` — optional; TwiML is served as static `conference.xml`. Only needed for dynamic TwiML / programmatic number management.
 
 ## Detection logic (the business logic)
 
@@ -95,21 +114,24 @@ Lives in a shared module `detector.py`, imported by the worker (and reusable by 
 ## Environment variables
 
 ```
-LIVEKIT_URL=
+pLIVEKIT_URL=wss://<your-project>.livekit.cloud   # from LiveKit Cloud dashboard
 LIVEKIT_API_KEY=
 LIVEKIT_API_SECRET=
-SARVAM_API_KEY=
+SARVAM_API_KEY=                      # **Sarvam** streaming STT (Saaras) — from Sarvam dashboard
 GROQ_API_KEY=
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
+MONGODB_URI=mongodb://mongo:27017   # docker-compose service name; localhost:27017 for local dev
+# Twilio creds not needed for the dial-in demo (Twilio → webhook, static TwiML, SIP via console).
+# Add TWILIO_AUTH_TOKEN only for webhook signature validation or Twilio REST API calls.
 # Expo push needs no server-side key when using Expo's push service.
 ```
 
 ## Run commands
 
 ```bash
-# LiveKit locally (or use LiveKit Cloud free tier and skip this)
-docker run --rm -p 7880:7880 livekit/livekit-server --dev
+# LiveKit is Cloud-hosted — nothing to run locally. Just set LIVEKIT_URL/KEY/SECRET.
+
+# MongoDB (local dev; docker compose runs this for you otherwise)
+docker run --rm -p 27017:27017 -v mongo-data:/data/db mongo:7
 
 # Agent worker (long-running; spawns a subprocess per call)
 uv run python -m worker.agent dev
@@ -117,9 +139,16 @@ uv run python -m worker.agent dev
 # FastAPI server (token endpoint + alert push)
 uv run uvicorn server.app:app --reload --port 8000
 
-# Everything together (worker + server + LiveKit)
+# Expose FastAPI for Twilio webhook + browser token fetch (free tier OK; HTTP only)
+ngrok http 8000   # update the Twilio webhook URL after each restart (URL rotates)
+
+# Everything together (worker + server + mongo)
 docker compose up
 ```
+
+> **Serving:** ngrok only carries FastAPI's HTTP (token endpoint + Twilio webhook).
+> WebRTC media and SIP go **directly to LiveKit Cloud**, never through ngrok — so the
+> free tier is fine (no UDP tunneling needed).
 
 This is a **single `uv` project** rooted at `backend/`: one `pyproject.toml`,
 one `uv.lock`, one shared `.venv`. Both `server/` and `worker/` are part of the same
@@ -135,7 +164,7 @@ backend/                      # uv project root (pyproject.toml, uv.lock, .venv,
 ├── main.py                   # uv-init entry placeholder — repurpose or remove
 ├── pyproject.toml            # shared deps for BOTH server and worker
 ├── uv.lock
-├── docker-compose.yml        # orchestrates worker + server (+ LiveKit)
+├── docker-compose.yml        # orchestrates worker + server + mongo (LiveKit is Cloud-hosted)
 ├── shared/                   # code imported by BOTH server and worker
 │   ├── detector.py           # scam-detection logic (Groq call + JSON schema + hysteresis)
 │   └── sarvam_stt.py         # Sarvam streaming STT WebSocket client

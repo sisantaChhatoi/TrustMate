@@ -1,0 +1,5 @@
+{
+  "dispatch_rule": {
+    "rule": { "dispatchRuleIndividual": { "roomPrefix": "call-" } }
+  }
+}

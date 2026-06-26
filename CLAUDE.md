@@ -1,5 +1,3 @@
-@AGENTS.md
-
 # App — Scam Call Detection (React Native + Expo)
 
 Context file for Claude Code. Place at `app/CLAUDE.md`.

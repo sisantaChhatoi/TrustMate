@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { View } from 'react-native';
 
+import { APP_NAME } from '@/constants/app';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -69,7 +70,7 @@ function BrandBar() {
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
       <IconBadge name="shield-checkmark" tone="brand" size="sm" />
-      <AppText variant="heading">CallGuard</AppText>
+      <AppText variant="heading">{APP_NAME}</AppText>
     </View>
   );
 }
@@ -102,7 +103,7 @@ function Hero() {
         Scam calls, caught before you fall for them.
       </AppText>
       <AppText variant="body" color="rgba(255,255,255,0.88)">
-        CallGuard puts an AI agent on the line that spots fraud as it happens — and warns
+        {APP_NAME} puts an AI agent on the line that spots fraud as it happens — and warns
         you in seconds, in words you understand.
       </AppText>
 

@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   FlatList,
   NativeScrollEvent,
   NativeSyntheticEvent,
@@ -25,6 +26,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { CallFlowArt, GraphArt, MapArt, RadarArt } from '@/components/onboarding/onboarding-art';
 import { AppText } from '@/components/ui/app-text';
 import { colors } from '@/constants/design';
+import { flags } from '@/constants/flags';
+import { resolveStartRoute } from '@/lib/session';
 
 const PAGE_BG = '#F7F8FC';
 const AUTOPLAY_MS = 4600;
@@ -87,6 +90,7 @@ export default function Onboarding() {
   const listRef = useRef<FlatList<Slide>>(null);
   const idxRef = useRef(0);
   const [index, setIndex] = useState(0);
+  const [resolving, setResolving] = useState(false);
 
   const onScroll = useAnimatedScrollHandler((e) => {
     scrollX.value = e.contentOffset.x;
@@ -112,7 +116,20 @@ export default function Onboarding() {
     setIndex(i);
   };
 
-  const finish = () => router.replace('/(tabs)');
+  const finish = async () => {
+    if (resolving) return;
+    if (flags.debugLoginForm) {
+      router.replace('/login');
+      return;
+    }
+    if (flags.debugSignupForm) {
+      router.replace('/signup');
+      return;
+    }
+    setResolving(true);
+    const dest = await resolveStartRoute();
+    router.replace(dest);
+  };
   const isLast = index === SLIDES.length - 1;
   const active = SLIDES[index];
 
@@ -153,10 +170,16 @@ export default function Onboarding() {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.cta}>
-            <AppText variant="bodyStrong" color="#FFFFFF">
-              {isLast ? 'Get Started' : 'Continue'}
-            </AppText>
-            <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+            {resolving ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <>
+                <AppText variant="bodyStrong" color="#FFFFFF">
+                  {isLast ? 'Get Started' : 'Continue'}
+                </AppText>
+                <Ionicons name="arrow-forward" size={18} color="#FFFFFF" />
+              </>
+            )}
           </LinearGradient>
         </Pressable>
       </View>

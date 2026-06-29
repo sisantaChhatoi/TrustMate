@@ -1,0 +1,9 @@
+.env
+.env.*
+__pycache__/
+*.pyc
+.cache/
+models/
+data/rag/incidents.jsonl
+data/graph/
+data/graph_neo4j/

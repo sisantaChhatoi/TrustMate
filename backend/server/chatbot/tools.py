@@ -131,4 +131,24 @@ def build_chat_tools(
         await incidents.upsert(incident)
         return "updated"
 
-    return [search_fraud_knowledge, save_incident, update_incident]
+    @tool
+    async def lookup_fraud_network(value: str) -> str:
+        """Check whether a phone number, bank account, or UPI id has shown up in
+        OTHER reported scams. Call this when the user names a specific number /
+        account / UPI, so you can warn them if it's already known. Returns how
+        many prior reports mention it and what it's linked to."""
+        info = await incidents.lookup_entity(value, exclude_session=session_id)
+        if info["report_count"] == 0:
+            return f"{value}: not seen in any other report yet."
+        return (
+            f"{value}: appears in {info['report_count']} other report(s); "
+            f"seen as {info['seen_as']}; scam types {info['scam_types']}; "
+            f"linked to {info['linked_entities']}"
+        )
+
+    return [
+        search_fraud_knowledge,
+        save_incident,
+        update_incident,
+        lookup_fraud_network,
+    ]

@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     retrieval_top_k: int = 4
     retrieval_min_score: float = 0.35
 
+    neo4j_uri: str = "neo4j://localhost:7687"
+    neo4j_username: str = "neo4j"
+    neo4j_password: str = "neo4jlocal"
+    neo4j_database: str = "neo4j"
+
     groq_api_key: str = ""
     sarvam_api_key: str = ""
 

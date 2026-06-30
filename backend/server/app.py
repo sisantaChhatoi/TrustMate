@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from server.graph.scheduler import start_scheduler, stop_scheduler
 from server.repositories.chat_repo import ChatRepository
 from server.repositories.incident_repo import IncidentRepository
 from server.repositories.user_repo import UserRepository
@@ -15,7 +16,9 @@ async def lifespan(_: FastAPI):
     await UserRepository(db).ensure_indexes()
     await ChatRepository(db).ensure_indexes()
     await IncidentRepository(db).ensure_indexes()
+    start_scheduler()
     yield
+    stop_scheduler()
 
 
 def create_app() -> FastAPI:

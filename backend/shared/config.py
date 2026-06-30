@@ -50,5 +50,7 @@ class Settings(BaseSettings):
     min_transcript_chars: int = 40
     consecutive_positives: int = 2
 
+    graph_rebuild_interval_hours: int = 6
+
 
 settings = Settings()

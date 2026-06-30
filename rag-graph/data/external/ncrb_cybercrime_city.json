@@ -1,0 +1,308 @@
+[
+  {
+    "city": "Agra",
+    "cases_2021": 0,
+    "cases_2022": 0,
+    "cases_2023": 171,
+    "population_lakhs_2011": 17.5,
+    "crime_rate_2023": 9.8,
+    "chargesheeting_rate_2023": 92.8
+  },
+  {
+    "city": "Amritsar",
+    "cases_2021": 92,
+    "cases_2022": 79,
+    "cases_2023": 62,
+    "population_lakhs_2011": 11.8,
+    "crime_rate_2023": 5.2,
+    "chargesheeting_rate_2023": 38.7
+  },
+  {
+    "city": "Asansol",
+    "cases_2021": 21,
+    "cases_2022": 25,
+    "cases_2023": 12,
+    "population_lakhs_2011": 12.4,
+    "crime_rate_2023": 1.0,
+    "chargesheeting_rate_2023": 70.6
+  },
+  {
+    "city": "Aurangabad",
+    "cases_2021": 80,
+    "cases_2022": 96,
+    "cases_2023": 72,
+    "population_lakhs_2011": 11.9,
+    "crime_rate_2023": 6.1,
+    "chargesheeting_rate_2023": 27.3
+  },
+  {
+    "city": "Bhopal",
+    "cases_2021": 6,
+    "cases_2022": 110,
+    "cases_2023": 75,
+    "population_lakhs_2011": 18.8,
+    "crime_rate_2023": 4.0,
+    "chargesheeting_rate_2023": 96.8
+  },
+  {
+    "city": "Chandigarh City",
+    "cases_2021": 15,
+    "cases_2022": 27,
+    "cases_2023": 23,
+    "population_lakhs_2011": 10.3,
+    "crime_rate_2023": 2.2,
+    "chargesheeting_rate_2023": 31.3
+  },
+  {
+    "city": "Dhanbad",
+    "cases_2021": 61,
+    "cases_2022": 41,
+    "cases_2023": 41,
+    "population_lakhs_2011": 11.9,
+    "crime_rate_2023": 3.4,
+    "chargesheeting_rate_2023": 60.0
+  },
+  {
+    "city": "Durg-Bhilainagar",
+    "cases_2021": 16,
+    "cases_2022": 24,
+    "cases_2023": 28,
+    "population_lakhs_2011": 10.6,
+    "crime_rate_2023": 2.6,
+    "chargesheeting_rate_2023": 81.5
+  },
+  {
+    "city": "Faridabad",
+    "cases_2021": 47,
+    "cases_2022": 47,
+    "cases_2023": 49,
+    "population_lakhs_2011": 14.1,
+    "crime_rate_2023": 3.5,
+    "chargesheeting_rate_2023": 60.5
+  },
+  {
+    "city": "Gwalior",
+    "cases_2021": 60,
+    "cases_2022": 86,
+    "cases_2023": 84,
+    "population_lakhs_2011": 11.0,
+    "crime_rate_2023": 7.6,
+    "chargesheeting_rate_2023": 88.6
+  },
+  {
+    "city": "Jabalpur",
+    "cases_2021": 0,
+    "cases_2022": 0,
+    "cases_2023": 0,
+    "population_lakhs_2011": 12.7,
+    "crime_rate_2023": 0.0,
+    "chargesheeting_rate_2023": null
+  },
+  {
+    "city": "Jamshedpur",
+    "cases_2021": 67,
+    "cases_2022": 115,
+    "cases_2023": 86,
+    "population_lakhs_2011": 13.4,
+    "crime_rate_2023": 6.4,
+    "chargesheeting_rate_2023": 35.3
+  },
+  {
+    "city": "Jodhpur",
+    "cases_2021": 151,
+    "cases_2022": 127,
+    "cases_2023": 164,
+    "population_lakhs_2011": 11.4,
+    "crime_rate_2023": 14.4,
+    "chargesheeting_rate_2023": 55.0
+  },
+  {
+    "city": "Kannur",
+    "cases_2021": 25,
+    "cases_2022": 14,
+    "cases_2023": 119,
+    "population_lakhs_2011": 16.4,
+    "crime_rate_2023": 7.2,
+    "chargesheeting_rate_2023": 40.0
+  },
+  {
+    "city": "Kollam",
+    "cases_2021": 29,
+    "cases_2022": 12,
+    "cases_2023": 63,
+    "population_lakhs_2011": 11.1,
+    "crime_rate_2023": 5.7,
+    "chargesheeting_rate_2023": 18.8
+  },
+  {
+    "city": "Kota",
+    "cases_2021": 35,
+    "cases_2022": 30,
+    "cases_2023": 113,
+    "population_lakhs_2011": 10.0,
+    "crime_rate_2023": 11.3,
+    "chargesheeting_rate_2023": 45.7
+  },
+  {
+    "city": "Ludhiana",
+    "cases_2021": 27,
+    "cases_2022": 80,
+    "cases_2023": 76,
+    "population_lakhs_2011": 16.1,
+    "crime_rate_2023": 4.7,
+    "chargesheeting_rate_2023": 82.5
+  },
+  {
+    "city": "Madurai",
+    "cases_2021": 25,
+    "cases_2022": 113,
+    "cases_2023": 63,
+    "population_lakhs_2011": 14.6,
+    "crime_rate_2023": 4.3,
+    "chargesheeting_rate_2023": 16.7
+  },
+  {
+    "city": "Malappuram",
+    "cases_2021": 24,
+    "cases_2022": 16,
+    "cases_2023": 69,
+    "population_lakhs_2011": 17.0,
+    "crime_rate_2023": 4.1,
+    "chargesheeting_rate_2023": 34.1
+  },
+  {
+    "city": "Meerut",
+    "cases_2021": 101,
+    "cases_2022": 134,
+    "cases_2023": 185,
+    "population_lakhs_2011": 14.3,
+    "crime_rate_2023": 13.0,
+    "chargesheeting_rate_2023": 56.5
+  },
+  {
+    "city": "Nasik",
+    "cases_2021": 42,
+    "cases_2022": 55,
+    "cases_2023": 96,
+    "population_lakhs_2011": 15.6,
+    "crime_rate_2023": 6.1,
+    "chargesheeting_rate_2023": 15.4
+  },
+  {
+    "city": "Prayagraj",
+    "cases_2021": 533,
+    "cases_2022": 510,
+    "cases_2023": 242,
+    "population_lakhs_2011": 12.2,
+    "crime_rate_2023": 19.9,
+    "chargesheeting_rate_2023": 53.8
+  },
+  {
+    "city": "Raipur",
+    "cases_2021": 66,
+    "cases_2022": 86,
+    "cases_2023": 79,
+    "population_lakhs_2011": 11.2,
+    "crime_rate_2023": 7.0,
+    "chargesheeting_rate_2023": 99.0
+  },
+  {
+    "city": "Rajkot",
+    "cases_2021": 31,
+    "cases_2022": 38,
+    "cases_2023": 55,
+    "population_lakhs_2011": 13.9,
+    "crime_rate_2023": 4.0,
+    "chargesheeting_rate_2023": 75.4
+  },
+  {
+    "city": "Ranchi",
+    "cases_2021": 87,
+    "cases_2022": 129,
+    "cases_2023": 181,
+    "population_lakhs_2011": 11.3,
+    "crime_rate_2023": 16.1,
+    "chargesheeting_rate_2023": 46.2
+  },
+  {
+    "city": "Srinagar",
+    "cases_2021": 4,
+    "cases_2022": 1,
+    "cases_2023": 1,
+    "population_lakhs_2011": 12.7,
+    "crime_rate_2023": 0.1,
+    "chargesheeting_rate_2023": 0.0
+  },
+  {
+    "city": "Thiruvananthapuram",
+    "cases_2021": 91,
+    "cases_2022": 93,
+    "cases_2023": 584,
+    "population_lakhs_2011": 16.9,
+    "crime_rate_2023": 34.6,
+    "chargesheeting_rate_2023": 65.9
+  },
+  {
+    "city": "Thrissur",
+    "cases_2021": 51,
+    "cases_2022": 46,
+    "cases_2023": 434,
+    "population_lakhs_2011": 18.5,
+    "crime_rate_2023": 23.4,
+    "chargesheeting_rate_2023": 45.8
+  },
+  {
+    "city": "Tiruchirapalli",
+    "cases_2021": 20,
+    "cases_2022": 17,
+    "cases_2023": 22,
+    "population_lakhs_2011": 10.2,
+    "crime_rate_2023": 2.2,
+    "chargesheeting_rate_2023": 57.7
+  },
+  {
+    "city": "Vadodara",
+    "cases_2021": 54,
+    "cases_2022": 55,
+    "cases_2023": 61,
+    "population_lakhs_2011": 18.2,
+    "crime_rate_2023": 3.4,
+    "chargesheeting_rate_2023": 77.5
+  },
+  {
+    "city": "Varanasi",
+    "cases_2021": 420,
+    "cases_2022": 239,
+    "cases_2023": 282,
+    "population_lakhs_2011": 14.4,
+    "crime_rate_2023": 19.7,
+    "chargesheeting_rate_2023": 35.3
+  },
+  {
+    "city": "Vasai Virar",
+    "cases_2021": 67,
+    "cases_2022": 90,
+    "cases_2023": 104,
+    "population_lakhs_2011": 12.2,
+    "crime_rate_2023": 8.5,
+    "chargesheeting_rate_2023": 36.8
+  },
+  {
+    "city": "Vijayawada",
+    "cases_2021": 133,
+    "cases_2022": 156,
+    "cases_2023": 163,
+    "population_lakhs_2011": 14.9,
+    "crime_rate_2023": 10.9,
+    "chargesheeting_rate_2023": 22.6
+  },
+  {
+    "city": "Vishakhapatnam",
+    "cases_2021": 323,
+    "cases_2022": 621,
+    "cases_2023": 419,
+    "population_lakhs_2011": 17.3,
+    "crime_rate_2023": 24.2,
+    "chargesheeting_rate_2023": 50.0
+  }
+]

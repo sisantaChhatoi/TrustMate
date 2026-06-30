@@ -1,14 +1,17 @@
 """Pushes incidents into Neo4j Aura as a property graph: MuleAccount,
 PhoneNumber, VictimRegion, and ScammerId (the UPI handle a victim was asked
 to pay) nodes, linked by USED_IN_CALL_WITH, TARGETED_REGION, and
-REQUESTED_PAYMENT_VIA relationships. incident_count on nodes/relationships
-is how reuse shows up -- the same account/number/UPI appearing across
-multiple incidents increments it each time.
+REQUESTED_PAYMENT_VIA relationships. incident_count is how reuse shows up
+-- the same account/number/UPI appearing across multiple incidents
+increments it.
 
-Call this against a freshly-cleared database (see neo4j_run.py) -- it's
-MERGE-based so reruns without clearing would double-count, since there's no
-way to tell "already pushed this incident" apart from "this is genuinely a
-repeat occurrence" once the data's already in the graph.
+Idempotent per incident_id: every node/relationship tracks which
+incident_ids have already been counted, and only increments
+incident_count the first time a given incident_id is seen for it. This is
+what makes it safe to call repeatedly for the SAME incident as a
+conversation progresses (see src/rag/incident_store.py's auto-sync) without
+double-counting -- amount_requested/timestamp still always refresh to the
+latest known value, only the counting is one-shot per incident.
 """
 
 from __future__ import annotations
@@ -32,6 +35,44 @@ def _safe_float(value: object) -> float | None:
         return None
 
 
+_NODE_QUERY = """
+MERGE (n:{label} {{value: $value}})
+ON CREATE SET n.incident_count = 0, n.incident_ids = [], n.first_seen = $timestamp
+SET n.last_seen = $timestamp
+WITH n
+WHERE NOT $incident_id IN n.incident_ids
+SET n.incident_count = n.incident_count + 1, n.incident_ids = n.incident_ids + $incident_id
+"""
+
+
+def _merge_node(tx, label: str, value: str, incident_id: str, timestamp) -> None:
+    tx.run(_NODE_QUERY.format(label=label), value=value, incident_id=incident_id, timestamp=timestamp)
+
+
+_REL_QUERY = """
+MATCH (a:{from_label} {{value: $from_value}}), (b:{to_label} {{value: $to_value}})
+MERGE (a)-[rel:{rel_type}]->(b)
+ON CREATE SET rel.incident_count = 0, rel.incident_ids = []
+SET rel.amount_requested = $amount, rel.timestamp = $timestamp
+WITH rel
+WHERE NOT $incident_id IN rel.incident_ids
+SET rel.incident_count = rel.incident_count + 1, rel.incident_ids = rel.incident_ids + $incident_id
+"""
+
+
+def _merge_relationship(
+    tx, from_label: str, from_value: str, to_label: str, to_value: str, rel_type: str, incident_id: str, amount, timestamp
+) -> None:
+    tx.run(
+        _REL_QUERY.format(from_label=from_label, to_label=to_label, rel_type=rel_type),
+        from_value=from_value,
+        to_value=to_value,
+        incident_id=incident_id,
+        amount=amount,
+        timestamp=timestamp,
+    )
+
+
 def _push_incident(tx, incident: dict) -> None:
     incident_id = incident.get("incident_id") or str(incident.get("_id"))
     mule_account = _normalize(incident.get("mule_account"))
@@ -42,95 +83,28 @@ def _push_incident(tx, incident: dict) -> None:
     timestamp = incident.get("timestamp")
 
     if mule_account:
-        tx.run(
-            """
-            MERGE (a:MuleAccount {value: $value})
-            ON CREATE SET a.incident_count = 1, a.first_seen = $timestamp, a.last_seen = $timestamp
-            ON MATCH SET a.incident_count = a.incident_count + 1, a.last_seen = $timestamp
-            """,
-            value=mule_account,
-            timestamp=timestamp,
-        )
-
+        _merge_node(tx, "MuleAccount", mule_account, incident_id, timestamp)
     if phone_number:
-        tx.run(
-            """
-            MERGE (p:PhoneNumber {value: $value})
-            ON CREATE SET p.incident_count = 1, p.first_seen = $timestamp, p.last_seen = $timestamp
-            ON MATCH SET p.incident_count = p.incident_count + 1, p.last_seen = $timestamp
-            """,
-            value=phone_number,
-            timestamp=timestamp,
-        )
-
+        _merge_node(tx, "PhoneNumber", phone_number, incident_id, timestamp)
     if victim_region:
-        tx.run(
-            """
-            MERGE (r:VictimRegion {value: $value})
-            ON CREATE SET r.incident_count = 1, r.first_seen = $timestamp, r.last_seen = $timestamp
-            ON MATCH SET r.incident_count = r.incident_count + 1, r.last_seen = $timestamp
-            """,
-            value=victim_region,
-            timestamp=timestamp,
-        )
-
+        _merge_node(tx, "VictimRegion", victim_region, incident_id, timestamp)
     if scammer_id:
-        tx.run(
-            """
-            MERGE (s:ScammerId {value: $value})
-            ON CREATE SET s.incident_count = 1, s.first_seen = $timestamp, s.last_seen = $timestamp
-            ON MATCH SET s.incident_count = s.incident_count + 1, s.last_seen = $timestamp
-            """,
-            value=scammer_id,
-            timestamp=timestamp,
-        )
+        _merge_node(tx, "ScammerId", scammer_id, incident_id, timestamp)
 
     if mule_account and phone_number:
-        tx.run(
-            """
-            MATCH (a:MuleAccount {value: $account}), (p:PhoneNumber {value: $phone})
-            MERGE (a)-[rel:USED_IN_CALL_WITH]->(p)
-            ON CREATE SET rel.incident_count = 1, rel.incident_ids = [$incident_id],
-                          rel.amount_requested = $amount, rel.timestamp = $timestamp
-            ON MATCH SET rel.incident_count = rel.incident_count + 1,
-                         rel.incident_ids = rel.incident_ids + $incident_id
-            """,
-            account=mule_account,
-            phone=phone_number,
-            incident_id=incident_id,
-            amount=amount_requested,
-            timestamp=timestamp,
+        _merge_relationship(
+            tx, "MuleAccount", mule_account, "PhoneNumber", phone_number,
+            "USED_IN_CALL_WITH", incident_id, amount_requested, timestamp,
         )
-
     if phone_number and victim_region:
-        tx.run(
-            """
-            MATCH (p:PhoneNumber {value: $phone}), (r:VictimRegion {value: $region})
-            MERGE (p)-[rel:TARGETED_REGION]->(r)
-            ON CREATE SET rel.incident_count = 1, rel.incident_ids = [$incident_id]
-            ON MATCH SET rel.incident_count = rel.incident_count + 1,
-                         rel.incident_ids = rel.incident_ids + $incident_id
-            """,
-            phone=phone_number,
-            region=victim_region,
-            incident_id=incident_id,
+        _merge_relationship(
+            tx, "PhoneNumber", phone_number, "VictimRegion", victim_region,
+            "TARGETED_REGION", incident_id, None, timestamp,
         )
-
     if phone_number and scammer_id:
-        tx.run(
-            """
-            MATCH (p:PhoneNumber {value: $phone}), (s:ScammerId {value: $scammer_id})
-            MERGE (p)-[rel:REQUESTED_PAYMENT_VIA]->(s)
-            ON CREATE SET rel.incident_count = 1, rel.incident_ids = [$incident_id],
-                          rel.amount_requested = $amount, rel.timestamp = $timestamp
-            ON MATCH SET rel.incident_count = rel.incident_count + 1,
-                         rel.incident_ids = rel.incident_ids + $incident_id
-            """,
-            phone=phone_number,
-            scammer_id=scammer_id,
-            incident_id=incident_id,
-            amount=amount_requested,
-            timestamp=timestamp,
+        _merge_relationship(
+            tx, "PhoneNumber", phone_number, "ScammerId", scammer_id,
+            "REQUESTED_PAYMENT_VIA", incident_id, amount_requested, timestamp,
         )
 
 
@@ -138,3 +112,11 @@ def push_incidents(driver: Driver, database: str, incidents: list[dict]) -> None
     with driver.session(database=database) as session:
         for incident in incidents:
             session.execute_write(_push_incident, incident)
+
+
+def push_single_incident(driver: Driver, database: str, incident: dict) -> None:
+    """Same as push_incidents, for exactly one incident -- used by the
+    auto-sync path so a single chat save doesn't need to reload/repush
+    every incident in the database."""
+    with driver.session(database=database) as session:
+        session.execute_write(_push_incident, incident)

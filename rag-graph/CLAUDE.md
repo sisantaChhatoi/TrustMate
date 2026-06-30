@@ -39,25 +39,33 @@ User chats (Hindi / Hinglish / English)
 src/rag/   RAG chat: multilingual embeddings + FAISS retrieval over a fraud
         |  knowledge base -> Sarvam-30B generates a grounded, in-language
         |  reply -> a background pass extracts structured fields one at a
-        |  time (each graph-relevant field is asked at most once, ever)
+        |  time (each graph-relevant field is asked at most once, ever).
+        |  At most one extraction worker runs per session (coalescing worker
+        |  pattern) -- fast typing never queues up a backlog of threads.
         v
 MongoDB: <db>.incidents  <- source of truth (currently a separate Atlas
         |  cluster, see "Integrating" below for why that needs to change)
         |
-        | every save also auto-syncs that one incident into Neo4j right
-        | away (idempotent -- safe as the same incident gains fields over
-        | a conversation), so the graph stays current with zero manual
-        | steps. python -m src.graph.neo4j_run is only needed for a full
-        | rebuild (e.g. after deleting incidents, which doesn't auto-propagate)
+        | every save triggers THREE best-effort background syncs:
+        |   1. Neo4j -- idempotent graph update for this incident
+        |   2. Geospatial -- rebuilds hotspots/heatmap/deployment ranking
+        |      from all incidents so the map is always current
+        |
+        | python -m src.graph.neo4j_run / geospatial_run are only needed
+        | for a full on-demand rebuild or to get the human-readable summary
         v
-src/graph/  builds a fraud network graph from incidents, two backends:
-        |     - local: in-memory NetworkX graph + Louvain community detection
-        |     - Neo4j Aura: pushed as a real graph DB, Cypher pattern
-        |       queries, Louvain still runs in NetworkX (Aura's free tier
-        |       has no Graph Data Science plugin)
+src/graph/  fraud network graph (NetworkX + Neo4j Aura) AND geospatial
+        |   intelligence:
+        |     - local: in-memory NetworkX + Louvain community detection
+        |     - Neo4j Aura: Cypher pattern queries (GDS not available on
+        |       free tier -- Louvain runs in NetworkX)
+        |     - geospatial: Nominatim geocoding (cached), fraud hotspot
+        |       aggregation, NCRB baseline overlay, patrol deployment ranking
         v
-Fraud rings, reused/high-risk accounts, jurisdiction overlap, and
-evidence-style reports -- persisted to MongoDB AND exported as local files
+Fraud rings, reused/high-risk accounts, jurisdiction overlap, evidence
+reports, geocoded hotspot heatmap -- all persisted to MongoDB AND exported
+as local files. Geospatial data served via get_geospatial_data() in
+geospatial_service.py for the FastAPI backend.
 ```
 
 ## Key files
@@ -77,12 +85,36 @@ evidence-style reports -- persisted to MongoDB AND exported as local files
   fields (`_resolve_identity_conflict`).
 - `src/rag/incident_store.py` — persists to MongoDB (falls back to local
   JSONL if Mongo is unreachable), and best-effort auto-syncs every save
-  into Neo4j.
+  into Neo4j AND triggers a geospatial rebuild (`_sync_to_neo4j`,
+  `_sync_geospatial`).
 - `src/graph/` — `build.py`/`analyze.py`/`report.py` (local NetworkX
   pipeline), `neo4j_load.py`/`neo4j_queries.py`/`neo4j_run.py` (Neo4j Aura
   pipeline), `ring_intelligence.py`/`jurisdiction.py`/`court_reports.py`
   (confidence-scored fraud rings, region→state jurisdiction mapping,
   evidence report generation).
+- `src/graph/geospatial.py` — Nominatim geocoding with a persistent local
+  cache (`data/external/geocode_cache.json`). Any Indian city works
+  automatically; no hand-coded list. `build_hotspots()` aggregates incidents
+  by region, `build_geojson()` produces a GeoJSON FeatureCollection.
+- `src/graph/ncrb_baseline.py` / `fetch_ncrb_data.py` — loads a 34-city
+  NCRB cybercrime baseline (2021–2023) from a static JSON
+  (`data/external/ncrb_cybercrime_city.json`). Run `fetch_ncrb_data` once
+  to pull from the public PDF if the file is missing.
+- `src/graph/heatmap.py` — Folium interactive map with two toggleable
+  layers: NCRB baseline (blue) and our fraud incidents (red/orange by risk).
+- `src/graph/deployment.py` — patrol deployment ranking: combined risk score
+  = 0.7 × normalized(NCRB crime_rate_2023) + 0.3 × normalized(our
+  incident_count), top 10 zones returned.
+- `src/graph/geospatial_pipeline.py` — single shared rebuild function used
+  by both the CLI (`geospatial_run.py`) and the auto-sync after every chat
+  save. One place that defines what "regenerate geospatial outputs" means.
+- `src/graph/geospatial_store.py` — persists snapshots to MongoDB
+  (`geospatial_latest` upsert + `geospatial_runs` history).
+- `src/graph/geospatial_service.py` — **the backend integration point**.
+  `get_geospatial_data(include_heatmap=False)` reads `geospatial_latest`
+  from Mongo and returns hotspots + deployment strategy as a dict. Pass
+  `include_heatmap=True` to also get the full HTML string for serving a map
+  page. Suggested FastAPI routes are in the file's docstring.
 
 ## Stack
 
@@ -93,6 +125,9 @@ evidence-style reports -- persisted to MongoDB AND exported as local files
 | Embeddings       | `paraphrase-multilingual-MiniLM-L12-v2` (HuggingFace, CPU) |
 | Storage          | MongoDB Atlas (separate cluster from the main app's `mongo:7` container) |
 | Graph DB         | Neo4j Aura (free tier, no GDS plugin — Louvain runs in NetworkX) |
+| Geocoding        | Nominatim (OpenStreetMap, via `geopy`) — cached to `data/external/geocode_cache.json` |
+| Heatmap          | Folium — interactive HTML, two toggleable layers |
+| NCRB baseline    | Static JSON from public PDF (34 cities, 2021–2023 data) |
 
 ## Integrating into the real app
 
@@ -123,11 +158,12 @@ Three concrete mismatches to resolve before that swap:
    of generating its own, with no code change needed on this side. The
    open question is which id(s) the integration should pass through.
 
-Geospatial hotspot work (a planned extension of `src/graph/`) is blocked on
-#3 specifically: the app's `users.pin` (precise, geocodable) only becomes
-usable for incident-level mapping once a chat session is linkable back to a
-real `user_id` — until then, hotspot mapping can only use the free-text
-`victim_region` collected per-incident (city-level precision at best).
+Geospatial is built and working — `get_geospatial_data()` in
+`geospatial_service.py` is the backend integration point. The map currently
+uses `victim_region` (free-text city name, Nominatim-geocoded). Precision
+upgrades to PIN-level mapping become possible once chat sessions are
+linkable back to a real `user_id` (the app already collects `users.pin` at
+signup — mismatch #3 above is the only blocker).
 
 ## Run commands
 
@@ -140,10 +176,18 @@ python -m src.rag.ingest
 # Chat (standalone CLI, for testing without the real app)
 python -m src.rag.ask
 
+# Check what was extracted from a session
+python -m src.graph._check session cli-<id>
+python -m src.graph._check account <value>
+
 # Fraud graph, once a few incidents exist
-python -m src.graph.run                     # local NetworkX
+python -m src.graph.run                       # local NetworkX
 python -m src.graph.neo4j_run                 # push to Neo4j + basic Cypher analysis
 python -m src.graph.neo4j_intelligence_run    # full intelligence packages + evidence reports
+
+# Geospatial (runs automatically after every chat save -- these are for on-demand rebuild)
+python -m src.graph.fetch_ncrb_data           # one-time: fetch NCRB PDF -> data/external/ncrb_cybercrime_city.json
+python -m src.graph.geospatial_run            # rebuild hotspots/heatmap/deployment + write summary.txt
 ```
 
 `.env` needed: `SARVAM_API_KEY`, `MONGODB_URI`, `NEO4J_URI`,

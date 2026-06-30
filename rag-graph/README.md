@@ -15,20 +15,26 @@ User chats (Hindi / Hinglish / English)
         v
 src/rag/   RAG chat: multilingual embeddings + FAISS retrieval over a fraud
         |  knowledge base -> Sarvam-30B generates a grounded, in-language
-        |  reply -> a background pass extracts structured fields one at a
-        |  time (each graph-relevant field is asked at most once)
+        |  reply -> a background extraction pass fills in structured fields
+        |  one at a time (each asked at most once). At most one extraction
+        |  worker runs per session -- fast typing never builds a backlog.
         v
 MongoDB Atlas: digital_arrest_shield.incidents  <- source of truth
         |
+        | every save triggers three best-effort background syncs:
+        |   1. Neo4j -- idempotent graph update for this incident
+        |   2. Geospatial -- rebuilds hotspot map + deployment ranking
+        |      from all incidents so the map is always current
         v
-src/graph/  builds a fraud network graph from incidents, two backends:
-        |     - local: in-memory NetworkX graph + Louvain community detection
-        |     - Neo4j Aura: pushed as a real graph DB, Cypher pattern
-        |       queries, Louvain still runs in NetworkX (Aura's free tier
-        |       has no Graph Data Science plugin)
+src/graph/  fraud network graph AND geospatial intelligence:
+        |     - local: in-memory NetworkX + Louvain community detection
+        |     - Neo4j Aura: Cypher pattern queries
+        |     - geospatial: Nominatim geocoding (cached), NCRB baseline
+        |       overlay, patrol deployment ranking, Folium heatmap
         v
-Fraud rings, reused/high-risk accounts, jurisdiction overlap, and
-evidence-style reports -- persisted to MongoDB AND exported as local files
+Fraud rings, reused/high-risk accounts, jurisdiction overlap, evidence
+reports, geocoded hotspot heatmap -- persisted to MongoDB AND local files.
+Geospatial data exposed via get_geospatial_data() for the FastAPI backend.
 ```
 
 ## Components
@@ -52,7 +58,9 @@ evidence-style reports -- persisted to MongoDB AND exported as local files
   fields: `caller_number`, `mule_account`, `mule_upi`, `victim_region`,
   `amount_demanded`, `amount_lost`, `scam_type`, ...) and its persistence —
   MongoDB, falling back to a local `data/rag/incidents.jsonl` if Mongo is
-  ever unreachable.
+  ever unreachable. If Neo4j credentials are configured, every save also
+  auto-syncs that incident into the graph immediately (best-effort —
+  failures here never break saving the chat data itself).
 - `knowledge_base/*.md` — the fraud-advisory documents RAG retrieves from
   (digital arrest, courier/KYC/UPI/job/investment/lottery scams, reporting
   procedures, a cybercrime-terms glossary).
@@ -90,6 +98,32 @@ evidence-style reports -- persisted to MongoDB AND exported as local files
   Neo4j already has — doesn't re-push or clear anything. Run:
   `python -m src.graph.neo4j_intelligence_run`.
 
+**Geospatial intelligence pipeline:**
+- `geospatial.py` — Nominatim geocoding (OpenStreetMap, via `geopy`) with a
+  persistent local cache at `data/external/geocode_cache.json`. Any Indian
+  city a user types gets looked up automatically and cached permanently — no
+  hand-coded city list. `build_hotspots()` aggregates incidents by region.
+- `ncrb_baseline.py` / `fetch_ncrb_data.py` — 34-city NCRB cybercrime
+  baseline (2021–2023) from a public PDF, stored as static JSON. Run
+  `fetch_ncrb_data` once if the file is missing.
+- `heatmap.py` — Folium interactive map, two toggleable layers: NCRB
+  baseline (blue markers) and our fraud incidents (red = high risk, orange =
+  normal). Output: `data/graph/geospatial_heatmap.html`.
+- `deployment.py` — patrol deployment ranking. Combined risk score =
+  0.7 × normalized(NCRB crime_rate_2023) + 0.3 × normalized(our
+  incident_count). Top 10 zones with methodology documented in output.
+- `geospatial_pipeline.py` — shared rebuild function used by both the CLI
+  and the auto-sync after every chat save.
+- `geospatial_store.py` — persists to MongoDB: `geospatial_latest` (single
+  upsert) + `geospatial_runs` (timestamped history).
+- `geospatial_service.py` — **FastAPI integration point**. Call
+  `get_geospatial_data(include_heatmap=False)` to get hotspots + deployment
+  strategy as a JSON-serializable dict. Pass `include_heatmap=True` to also
+  get the full HTML string for serving the map page directly. Suggested
+  FastAPI routes are in the file's docstring.
+- `geospatial_run.py` — CLI for on-demand rebuild + human-readable
+  `geospatial_summary.txt`. Run: `python -m src.graph.geospatial_run`.
+
 ## Setup
 
 `.env` (gitignored, never hardcoded):
@@ -121,11 +155,18 @@ python -m src.rag.ingest
 # 2. Chat
 python -m src.rag.ask
 
-# 3. Once a few conversations exist, build/analyze the fraud graph
-python -m src.graph.run                     # local NetworkX
-python -m src.graph.visualize                # quick PNG
+# 3. Check what was extracted from a session
+python -m src.graph._check session cli-<id>
+
+# 4. Once a few conversations exist, build/analyze the fraud graph
+python -m src.graph.run                       # local NetworkX
+python -m src.graph.visualize                 # quick PNG
 python -m src.graph.neo4j_run                 # push to Neo4j + basic Cypher analysis
 python -m src.graph.neo4j_intelligence_run    # full intelligence packages + evidence reports
+
+# 5. Geospatial (auto-runs after every chat save -- these are for on-demand use)
+python -m src.graph.fetch_ncrb_data           # one-time: fetch NCRB baseline
+python -m src.graph.geospatial_run            # rebuild + write geospatial_summary.txt
 ```
 
 ## Where everything actually lives
@@ -137,12 +178,21 @@ python -m src.graph.neo4j_intelligence_run    # full intelligence packages + evi
     rendered evidence report text (not just structured data).
   - `digital_arrest_shield.fraud_intelligence_runs` — one document per
     analysis run (summary stats, jurisdiction alerts), timestamped.
+  - `digital_arrest_shield.geospatial_latest` — single always-current
+    geospatial snapshot (hotspots, deployment strategy, heatmap HTML).
+    Updated automatically after every chat save.
+  - `digital_arrest_shield.geospatial_runs` — lightweight timestamped
+    history of each rebuild (hotspot count + top deployment zones).
 - **Neo4j Aura** — the graph itself, fully rebuilt from MongoDB on every
   `neo4j_run.py` call; nothing here is irreplaceable.
 - **Local files** (`data/graph/`, `data/graph_neo4j/`, gitignored) —
   disposable exports of the exact same content above, for reading without
   a DB client. Safe to delete anytime; rerunning the pipeline regenerates
   them identically.
+- **`data/external/geocode_cache.json`** — persistent Nominatim cache.
+  Commit this file so teammates don't re-hit the API for cities already
+  looked up. `data/external/ncrb_cybercrime_city.json` — static NCRB data,
+  also commit.
 
 ## Honest limitations
 
@@ -173,3 +223,8 @@ python -m src.graph.neo4j_intelligence_run    # full intelligence packages + evi
 - **FAISS** (`faiss-cpu`) — local knowledge-base vector index.
 - **MongoDB Atlas** — incident storage and the durable evidence copy.
 - **Neo4j Aura** + **NetworkX** (Louvain) — fraud network graph analysis.
+- **Nominatim / geopy** — free OpenStreetMap geocoding, India-scoped, cached
+  locally so any city works without a hand-coded list.
+- **Folium** — interactive HTML heatmap with toggleable layers.
+- **NCRB cybercrime baseline** — 34-city 2021–2023 data from a public PDF,
+  used to weight the patrol deployment ranking.

@@ -5,6 +5,16 @@ allowlist, etc.) -- a Mongo outage degrades to local storage instead of
 crashing the chat. Both paths upsert by session_id, so storage is the
 source of truth for resuming a session's history and Incident state across
 process restarts.
+
+Also auto-syncs each saved incident into Neo4j (if configured) right after
+the Mongo save -- see _sync_to_neo4j -- so the fraud graph stays current
+without needing a manual `python -m src.graph.neo4j_run` after every
+conversation. Best-effort: a Neo4j hiccup never breaks saving the chat data
+itself.
+
+Same best-effort pattern for the geospatial hotspot/heatmap/deployment
+build (see _sync_geospatial) -- a new victim_region shows up on the map
+without a manual `python -m src.graph.geospatial_run`.
 """
 
 from __future__ import annotations
@@ -14,6 +24,7 @@ import os
 from pathlib import Path
 
 from dotenv import load_dotenv
+from neo4j import GraphDatabase
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
@@ -25,12 +36,16 @@ DB_NAME = "digital_arrest_shield"
 COLLECTION_NAME = "incidents"
 JSONL_FALLBACK_PATH = Path(__file__).resolve().parents[2] / "data" / "rag" / "incidents.jsonl"
 
-# Short timeout so a dead Mongo fails fast instead of stalling every chat
-# turn for the ~30s pymongo default before falling back.
+# Short timeout so a dead Mongo/Neo4j fails fast instead of stalling every
+# chat turn for a long default before falling back / giving up.
 MONGO_TIMEOUT_MS = 5000
+NEO4J_TIMEOUT_S = 5
 
 _mongo_client: MongoClient | None = None
 _mongo_checked = False
+
+_neo4j_driver = None
+_neo4j_checked = False
 
 
 def _get_collection():
@@ -74,19 +89,81 @@ def _upsert_jsonl(data: dict) -> None:
     )
 
 
+def _get_neo4j_driver():
+    global _neo4j_driver, _neo4j_checked
+    if not _neo4j_checked:
+        uri = os.environ.get("NEO4J_URI")
+        username = os.environ.get("NEO4J_USERNAME")
+        password = os.environ.get("NEO4J_PASSWORD")
+        if not all([uri, username, password]):
+            _neo4j_checked = True  # not configured -- permanent for this process
+            return None
+        try:
+            _neo4j_driver = GraphDatabase.driver(
+                uri, auth=(username, password), connection_timeout=NEO4J_TIMEOUT_S
+            )
+            _neo4j_checked = True
+        except Exception:
+            # Construction failure isn't cached as checked -- retry next
+            # call in case it was transient, same pattern as Mongo above.
+            return None
+    return _neo4j_driver
+
+
+def _sync_to_neo4j(data: dict) -> None:
+    """Pushes this one incident into the Neo4j graph right after it's saved
+    to Mongo, idempotently (see neo4j_load.push_single_incident) -- safe to
+    call again as the same incident gains more fields over a conversation.
+    Best-effort: any failure here is swallowed, never surfaced to the chat."""
+    driver = _get_neo4j_driver()
+    if driver is None:
+        return
+    try:
+        from src.graph.neo4j_client import get_database
+        from src.graph.neo4j_load import push_single_incident
+
+        push_single_incident(driver, get_database(), data)
+    except Exception:
+        pass
+
+
+def _sync_geospatial() -> None:
+    """Rebuilds the geospatial hotspots/heatmap/deployment ranking from
+    every incident currently in MongoDB, right after this save -- so a new
+    victim_region from this conversation shows up on the map without
+    needing a manual `python -m src.graph.geospatial_run`. Best-effort:
+    any failure here is swallowed, never surfaced to the chat. Skipped
+    entirely if Mongo isn't configured, since the rebuild reloads all
+    incidents from there regardless of which path this save itself took."""
+    if os.environ.get("MONGODB_URI") is None:
+        return
+    try:
+        from src.graph.geospatial_pipeline import regenerate_geospatial_outputs
+
+        regenerate_geospatial_outputs()
+    except Exception:
+        pass
+
+
 def save_session(incident: Incident, messages: list[dict]) -> None:
     """Persists the Incident fields plus the full chat message thread, keyed
-    by session_id."""
+    by session_id. Once that's landed (Mongo or the jsonl fallback), also
+    auto-syncs into Neo4j if configured (see _sync_to_neo4j) -- Mongo is the
+    source of truth, Neo4j is a derived view pulled from it."""
     data = incident.model_dump(mode="json")
     data["messages"] = messages
     collection = _get_collection()
     if collection is not None:
         try:
             collection.update_one({"session_id": incident.session_id}, {"$set": data}, upsert=True)
+            _sync_to_neo4j(data)
+            _sync_geospatial()
             return
         except PyMongoError:
             pass  # Mongo configured but unreachable right now -- fall back below.
     _upsert_jsonl(data)
+    _sync_to_neo4j(data)
+    _sync_geospatial()
 
 
 def load_session(session_id: str) -> tuple[Incident | None, list[dict]]:

@@ -1,7 +1,4 @@
-"""Pushes the in-memory fraud graph into Neo4j: one Entity node per
-account/number/region/UPI, CO_OCCURS edges between entities that share an
-incident. Best-effort -- the pipeline keeps going if Neo4j is unreachable.
-"""
+"""Loads the fraud graph into Neo4j as Entity nodes + CO_OCCURS edges."""
 
 import networkx as nx
 

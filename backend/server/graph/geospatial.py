@@ -1,11 +1,5 @@
-"""Aggregates incidents into geocoded hotspots for the map view: fraud
-density per region. Geocoding uses Nominatim (OpenStreetMap) with a local
-JSON cache, so any Indian city a victim types resolves automatically and the
-API is hit at most once per unique city ever.
-
-Ported from the rag-graph geospatial work (author: Shambhawi); cache path
-repointed at the backend data dir.
-"""
+"""Geocoded fraud hotspots per region. Geocoding via Nominatim with a local
+JSON cache (one API hit per unique city)."""
 
 import json
 import time
@@ -57,9 +51,6 @@ def _nominatim_lookup(query: str) -> tuple[float, float] | None:
 
 
 def geocode_region(region: str | None) -> tuple[float, float] | None:
-    """(lat, lon) for a city, or None if unresolvable. Cache first; on a miss
-    call Nominatim and cache the result (including None, so repeated misses
-    do not hit the API again)."""
     if not region:
         return None
     key = region.strip().lower()
@@ -73,7 +64,7 @@ def geocode_region(region: str | None) -> tuple[float, float] | None:
     return coords
 
 
-def _safe_float(value: object) -> float:
+def _safe_float(value: float | int | str | None) -> float:
     if value is None:
         return 0.0
     try:
@@ -83,18 +74,17 @@ def _safe_float(value: object) -> float:
 
 
 def build_hotspots(incidents: list[dict]) -> tuple[list[dict], int]:
-    """(hotspots, ungeocoded_count). Each hotspot aggregates every incident
-    whose victim_region resolves to a city, sorted by incident_count desc."""
     buckets: dict[str, list[dict]] = defaultdict(list)
     coords_map: dict[str, tuple[float, float]] = {}
     ungeocoded_count = 0
 
     for incident in incidents:
         region = incident.get("victim_region")
+        if not region:
+            continue
         coords = geocode_region(region)
         if coords is None:
-            if region:
-                ungeocoded_count += 1
+            ungeocoded_count += 1
             continue
         key = region.strip().lower()
         buckets[key].append(incident)

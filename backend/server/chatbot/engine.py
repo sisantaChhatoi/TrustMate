@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from typing import cast
 
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import (
@@ -70,7 +71,8 @@ class ChatbotEngine:
 
         for _ in range(_MAX_TOOL_ROUNDS):
             gathered: AIMessageChunk | None = None
-            async for chunk in llm.astream(messages):
+            async for raw in llm.astream(messages):
+                chunk = cast(AIMessageChunk, raw)
                 if isinstance(chunk.content, str) and chunk.content:
                     yield chunk.content
                 gathered = chunk if gathered is None else gathered + chunk

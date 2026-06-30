@@ -8,6 +8,12 @@ repos:
 
   - repo: local
     hooks:
+      - id: ty
+        name: ty (backend types)
+        entry: bash -c 'cd backend && uvx ty check server worker shared'
+        language: system
+        files: ^backend/.*\.py$
+        pass_filenames: false
       - id: prettier
         name: prettier (app)
         entry: bash -c 'cd app && bun run format'

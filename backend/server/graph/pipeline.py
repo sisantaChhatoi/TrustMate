@@ -1,13 +1,7 @@
-"""Batch build of the fraud-intelligence layer.
-
-Reads every incident from Mongo, builds the co-occurrence graph, derives
-fraud rings + per-entity risk + geospatial hotspots, and writes the results
-back to the `intelligence` collection (one snapshot doc per kind) for the
-/intelligence API to read. Also best-effort loads the graph into Neo4j.
-
-Runnable via `python -m server.graph` (CLI now, cron later). Kept synchronous
-and self-contained -- it is a standalone job, not part of the request path.
-"""
+"""Batch build of the fraud-intelligence layer: reads incidents from Mongo,
+derives rings + per-entity risk + geospatial hotspots, writes snapshot docs
+to the `intelligence` collection, and best-effort loads the graph into Neo4j.
+Run via `python -m server.graph`."""
 
 from datetime import datetime, timezone
 

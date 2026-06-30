@@ -1,7 +1,4 @@
-"""Read-only fraud-intelligence API for the app dashboard. Everything here
-is precomputed by the `python -m server.graph` batch job and served straight
-from Mongo -- no graph work happens in the request path.
-"""
+"""Read-only fraud-intelligence API, served from the precomputed snapshots."""
 
 from typing import Annotated
 

@@ -8,7 +8,7 @@ HIGH_RISK_INCIDENT_THRESHOLD = 10
 MEDIUM_RISK_INCIDENT_THRESHOLD = 3
 
 
-def _safe_float(value: object) -> float:
+def _safe_float(value: float | int | str | None) -> float:
     if value is None:
         return 0.0
     try:
@@ -18,8 +18,6 @@ def _safe_float(value: object) -> float:
 
 
 def detect_communities(graph: nx.Graph) -> list[set[str]]:
-    """Louvain communities -- each is a candidate fraud ring: entities
-    clustered because they co-occurred across shared incidents."""
     if graph.number_of_edges() == 0:
         return [{node} for node in graph.nodes]
     return nx.community.louvain_communities(graph, weight="weight", seed=42)
@@ -94,8 +92,6 @@ def ring_by_node(communities: list[set[str]]) -> dict[str, int]:
 def build_account_intelligence(
     graph: nx.Graph, ring_for_node: dict[str, int]
 ) -> list[dict]:
-    """Per-entity risk profile -- which accounts/numbers are reused across
-    many incidents, the strongest signal of a coordinated operation."""
     intelligence: list[dict] = []
     for node, attrs in graph.nodes(data=True):
         incident_count = len(set(attrs["incident_ids"]))

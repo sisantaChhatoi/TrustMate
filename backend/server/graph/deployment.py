@@ -1,13 +1,7 @@
-"""Ranks cities for patrol/resource deployment priority by combining the
-NCRB national baseline with our own incident overlay -- a city high on both
-is a stronger signal than either alone. The combined score is a documented
-heuristic, not a verified risk determination.
+"""Patrol-deployment ranking: NCRB baseline weighted with our incident
+overlay."""
 
-Ported from the rag-graph geospatial work (author: Shambhawi).
-"""
-
-# NCRB's crime_rate_2023 is per-lakh-population (already size-normalized), so
-# it outweighs our raw self-reported incident_count.
+# NCRB rate is per-lakh (size-normalized), so it outweighs our raw counts.
 _NCRB_WEIGHT = 0.7
 _OUR_INCIDENTS_WEIGHT = 0.3
 

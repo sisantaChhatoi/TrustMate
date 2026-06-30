@@ -1,9 +1,4 @@
-"""Maps a free-text victim_region (a city name typed during the chat) to an
-Indian state, so multi-state ring activity can be flagged for the right
-cyber-cell. Best-effort static lookup; unknown cities map to "Unknown".
-
-Ported from the rag-graph geospatial work (author: Shambhawi).
-"""
+"""City -> Indian state lookup."""
 
 CITY_TO_STATE = {
     "mumbai": "Maharashtra",

@@ -1,9 +1,4 @@
-"""Loads the static NCRB city-wise cybercrime baseline and geocodes it, used
-as the baseline density layer under our own chat-collected incidents.
-
-Ported from the rag-graph geospatial work (author: Shambhawi); data path
-repointed at the backend data dir.
-"""
+"""Static NCRB city-wise cybercrime baseline, geocoded."""
 
 import json
 from pathlib import Path

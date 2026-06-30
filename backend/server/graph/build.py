@@ -1,17 +1,11 @@
-"""Builds a NetworkX graph linking the entities (mule accounts, phone
-numbers, victim regions, scammer UPI ids) that co-occur within an incident.
-
-Each incident is a clique: every pair of its entities gets an edge whose
-weight bumps when another incident reuses the same pair. An account or
-number reused across many incidents falls out as a high-degree,
-multi-incident node -- no special-casing for reuse detection.
-"""
+"""Co-occurrence graph over incidents: each incident is a clique of its
+entities, so an entity reused across incidents becomes a high-degree node."""
 
 from itertools import combinations
 
 import networkx as nx
 
-# Graph node type -> Incident field it is drawn from.
+# graph node type -> Incident field
 NODE_FIELDS = {
     "mule_account": "mule_account",
     "phone_number": "caller_number",

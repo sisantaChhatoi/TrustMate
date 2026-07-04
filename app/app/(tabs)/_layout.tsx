@@ -15,7 +15,7 @@ export default function TabLayout() {
 
   useEffect(() => {
     getToken().then((token) => {
-      if (!token) router.replace('/signup');
+      if (!token) router.replace('/onboarding');
     });
 
     registerForPushToken()

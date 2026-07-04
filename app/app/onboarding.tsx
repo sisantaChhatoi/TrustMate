@@ -122,7 +122,7 @@ export default function Onboarding() {
         setResolving(false);
       }
     });
-  }, []);
+  }, [router]);
 
   const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const i = Math.round(e.nativeEvent.contentOffset.x / width);
@@ -149,7 +149,13 @@ export default function Onboarding() {
 
   if (resolving) {
     return (
-      <View style={{ flex: 1, backgroundColor: PAGE_BG, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: PAGE_BG,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
         <ActivityIndicator size="large" color={colors.brand} />
       </View>
     );

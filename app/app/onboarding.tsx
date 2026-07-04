@@ -94,7 +94,7 @@ export default function Onboarding() {
   const listRef = useRef<FlatList<Slide>>(null);
   const idxRef = useRef(0);
   const [index, setIndex] = useState(0);
-  const [resolving, setResolving] = useState(false);
+  const [resolving, setResolving] = useState(true);
 
   const onScroll = useAnimatedScrollHandler((e) => {
     scrollX.value = e.contentOffset.x;
@@ -113,6 +113,16 @@ export default function Onboarding() {
     const id = setInterval(() => goTo((idxRef.current + 1) % SLIDES.length), AUTOPLAY_MS);
     return () => clearInterval(id);
   }, [goTo, index]);
+
+  useEffect(() => {
+    resolveStartRoute().then((dest) => {
+      if (dest !== '/signup') {
+        router.replace(dest);
+      } else {
+        setResolving(false);
+      }
+    });
+  }, []);
 
   const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const i = Math.round(e.nativeEvent.contentOffset.x / width);
@@ -136,6 +146,14 @@ export default function Onboarding() {
   };
   const isLast = index === SLIDES.length - 1;
   const active = SLIDES[index];
+
+  if (resolving) {
+    return (
+      <View style={{ flex: 1, backgroundColor: PAGE_BG, alignItems: 'center', justifyContent: 'center' }}>
+        <ActivityIndicator size="large" color={colors.brand} />
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: PAGE_BG }}>

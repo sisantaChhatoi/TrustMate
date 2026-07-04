@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     consecutive_positives: int = 2
 
     graph_rebuild_interval_hours: int = 6
+    internal_api_key: str = "dev-internal-key"
 
 
 settings = Settings()

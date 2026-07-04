@@ -92,10 +92,12 @@ Mongo via `shared/db.py` (`AsyncMongoClient`); all settings in `shared/config.py
   for `ChatOpenAI(api_key=...)`.
 - **Incident identity guard:** `caller_number` / `mule_account` / `mule_upi`
   must never share a value; a real account number (`\d{6,}`) overwrites.
-- **Push notifications:** code path is complete and wired (token register → store →
-  Expo send via `POST /test/notify`), but **not production-ready** — the Expo→FCM
-  credential chain + EAS build and the detector→push send path are still pending.
-  Full status/handoff: `backend/docs/notifications-handoff.md`.
+- **Push notifications:** fully wired end-to-end. Token register → store →
+  `POST /test/notify` (test loop) + `POST /alerts` (production path: worker calls
+  this with `{user_id, scam, confidence, reason, red_flags, caller}`; backend looks
+  up the push token and sends via Expo Push API → FCM). FCM V1 credentials uploaded
+  to EAS. APK built via `eas build -p android --profile preview`; CI/CD pipeline
+  auto-builds on release tags (`.github/workflows/build-apk.yml`).
 
 ## Core principles (do not violate)
 

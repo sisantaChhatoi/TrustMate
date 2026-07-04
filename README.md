@@ -94,3 +94,21 @@ cd app && bun expo start
 
 Point the app at the backend via `EXPO_PUBLIC_API_URL` (or `app/constants/config.ts`).
 On a real phone use the machine's LAN IP or an ngrok URL — `localhost` is the phone.
+
+## 📦 Building the APK
+
+Push notifications require a real APK (not Expo Go). Build manually:
+
+```bash
+cd app && eas build -p android --profile preview
+```
+
+Or automatically via CI/CD — push a release tag and GitHub Actions builds it:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow (`.github/workflows/build-apk.yml`) triggers on `v*` tags and runs
+`eas build` using the `EXPO_TOKEN` secret stored in GitHub → Settings → Secrets.

@@ -39,11 +39,11 @@ Base URL is `API_URL` in `constants/config.ts`; the typed client is `lib/api.ts`
   build / EAS APK**, not Expo Go. "No push token registered" downstream is this.
 - `app/(tabs)/protection.tsx` currently renders **hardcoded mock stats**
   ("12 calls screened" …) — placeholder, not real data.
-- Tabs are `index` (home, has the Test-Notify button) and `protection`. **No chat
-  or intelligence screen exists yet.**
-- Push notifications: the code path is wired end-to-end, but needs Firebase/EAS
-  setup + a dev build + the detector→push path before it delivers for real. Full
-  handoff: `backend/docs/notifications-handoff.md`.
+- Tabs are `index` (home), `alerts` (live scam alert screen), and `protection`.
+  **No chat or intelligence screen exists yet.**
+- Push notifications: **fully wired**. Firebase/FCM V1 credentials set up, EAS APK
+  built and tested. `POST /alerts` on the backend is the production intake (worker
+  → backend → FCM → phone). Tap a notification → app opens the Alerts tab.
 
 ## Stack
 

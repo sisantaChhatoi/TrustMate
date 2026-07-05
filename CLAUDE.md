@@ -44,6 +44,11 @@ cd backend && uv sync && pre-commit install   # writes .git/hooks/pre-commit
 - **No verbose, open-source-style docstrings or narration.**
 - Comment only the non-obvious **why**, never the **what** — let names carry
   intent. A one-line module docstring is fine; multi-paragraph essays are not.
+- **Default to zero comments.** Look at the neighbouring files: `user_repo.py`,
+  `notification_service.py`, `call_monitor.py` carry almost none. Match that.
+- **No method/function docstrings that just restate the signature or params.**
+  `async def start(...)` needs no `"""Insert a call..."""`. If a *why* is worth
+  saving, make it a single terse `# ...` line, not a multi-line docstring.
 
 ## Git / PRs
 

@@ -255,6 +255,7 @@ server = [
     { name = "websockets" },
 ]
 worker = [
+    { name = "httpx" },
     { name = "livekit-agents" },
     { name = "livekit-api" },
 ]
@@ -294,6 +295,7 @@ server = [
     { name = "websockets", specifier = ">=16.0" },
 ]
 worker = [
+    { name = "httpx", specifier = ">=0.28.1" },
     { name = "livekit-agents", specifier = ">=1.6.3" },
     { name = "livekit-api", specifier = ">=1.1.0" },
 ]

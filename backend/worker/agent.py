@@ -6,26 +6,29 @@ from livekit.agents import JobContext, WorkerOptions, cli
 
 import shared.config  # noqa: F401
 from shared.config import settings
+from shared.db import get_database
 from shared.detector import Detection, ScamDetector
+from shared.repositories.call_repo import CallRepository
+from shared.repositories.user_directory import UserDirectory
 from shared.stt.factory import create_stt
 from worker.audio_out import publish_silence
 from worker.call_monitor import CallMonitor
+from worker.call_recorder import CallRecorder
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("scamcall.worker")
 
 
-async def _raise_alert(
+async def _log_only_alert(
     participant: rtc.RemoteParticipant, detection: Detection, window: str
 ) -> None:
     logger.warning(
-        "SCAM ALERT caller=%s confidence=%.2f reason=%s red_flags=%s",
+        "SCAM ALERT caller=%s confidence=%.2f reason=%s red_flags=%s (no persistence)",
         participant.identity,
         detection.confidence,
         detection.reason,
         detection.red_flags,
     )
-    # TODO: POST to FastAPI alert intake -> Expo push -> user's phone.
 
 
 def _log_task_error(task: asyncio.Task) -> None:
@@ -40,11 +43,30 @@ def _spawn(coro) -> None:
     task.add_done_callback(_log_task_error)
 
 
+async def _setup_recorder(ctx: JobContext) -> CallRecorder | None:
+    # best-effort: a DB problem must not stop the call from being monitored
+    try:
+        db = get_database()
+        calls = CallRepository(db)
+        await calls.ensure_indexes()
+        recorder = CallRecorder(ctx, calls, UserDirectory(db))
+        await recorder.sync()
+        ctx.add_shutdown_callback(recorder.finish)
+        ctx.room.on("participant_connected", lambda *_: _spawn(recorder.sync()))
+        return recorder
+    except Exception:
+        logger.exception("call recording setup failed; continuing without persistence")
+        return None
+
+
 async def entrypoint(ctx: JobContext) -> None:
     await ctx.connect()
     logger.info("connected to room %r", ctx.room.name)
 
     _spawn(publish_silence(ctx.room))
+
+    recorder = await _setup_recorder(ctx)
+    on_alert = recorder.on_alert if recorder is not None else _log_only_alert
 
     detector = ScamDetector(
         settings.groq_api_key or None,
@@ -61,7 +83,7 @@ async def entrypoint(ctx: JobContext) -> None:
             window_seconds=settings.transcript_window_seconds,
             min_chars=settings.min_transcript_chars,
             consecutive_positives=settings.consecutive_positives,
-            on_alert=_raise_alert,
+            on_alert=on_alert,
         )
 
     def on_track_subscribed(

@@ -27,14 +27,17 @@ This service is now **two products in one FastAPI app**:
 
 ```
 server/
-  routers/       auth, chatbot, intelligence, test
+  routers/       auth, chatbot, intelligence, alerts, notifications, test
   services/      auth_service, chatbot_service, notification_service
-  repositories/  user_repo, chat_repo, incident_repo, intelligence_repo
+  repositories/  user_repo, chat_repo, incident_repo, intelligence_repo,
+                 notification_repo
   chatbot/       engine (LangChain agent loop), llm (provider factory),
                  tools (save/update/lookup + KB search), retrieval (FAISS)
   graph/         build, analyze, geospatial, deployment, ncrb_baseline,
                  neo4j_*, pipeline, __main__   ← the intelligence batch job
-  models/        user, chat, incident
+  core/          security (JWT)
+  models/        user, chat, incident, notification
+  deps.py        DI wiring (db, repos, services, current-user)
 ```
 Mongo via `shared/db.py` (`AsyncMongoClient`); all settings in `shared/config.py`.
 
@@ -94,10 +97,26 @@ Mongo via `shared/db.py` (`AsyncMongoClient`); all settings in `shared/config.py
   must never share a value; a real account number (`\d{6,}`) overwrites.
 - **Push notifications:** fully wired end-to-end. Token register → store →
   `POST /test/notify` (test loop) + `POST /alerts` (production path: worker calls
-  this with `{user_id, scam, confidence, reason, red_flags, caller}`; backend looks
+  this with `{user_id, confidence, reason, red_flags}`; backend looks
   up the push token and sends via Expo Push API → FCM). FCM V1 credentials uploaded
   to EAS. APK built via `eas build -p android --profile preview`; CI/CD pipeline
   auto-builds on release tags (`.github/workflows/build-apk.yml`).
+- **Call records + alert path (worker → `calls` collection + `POST /alerts`):**
+  On connect the worker identifies the **caller as the registered user** (the user
+  dials our agent), resolves `user_id` via `shared/repositories/user_directory.py`
+  (`phone_no` lookup), and upserts a `CallRecord` (`shared/models/call.py`) keyed on
+  `room_name` — idempotent, so re-runs on participant-join and re-dispatch don't
+  duplicate. On disconnect (`ctx.add_shutdown_callback`) it stamps `ended_at`.
+  Persistence is **best-effort**: a DB outage logs and the call is still monitored.
+  Alerts are **throttled per call** via `CallRepository.claim_notification` (atomic
+  `last_notified_at` gate, `ALERT_THROTTLE_SECONDS`, default 60s) so a sustained
+  scam re-alerts at most once/minute. `ALERT_INTAKE_URL` is the worker→FastAPI
+  target (`http://server:8000/alerts` under compose; localhost for local dev).
+- **Notification history:** on a successful push, `POST /alerts` persists the alert
+  (the payload fields + a server-stamped `sent_at`) to the `notifications` collection.
+  `GET /notifications` returns them newest-first, **JWT-scoped to the current user**
+  (no `user_id` path param — a user only ever sees their own). This is what the app
+  reads to render an alerts history.
 
 ## Core principles (do not violate)
 
@@ -129,7 +148,7 @@ Mongo via `shared/db.py` (`AsyncMongoClient`); all settings in `shared/config.py
 ## Architecture (call agent + chat API + intelligence batch)
 
 Three surfaces share **one MongoDB** (collections: `users`, `chats`,
-`incidents`, `intelligence`). FastAPI (`server/app.py`) fronts the chat + read
+`incidents`, `intelligence`, `calls`, `notifications`). FastAPI (`server/app.py`) fronts the chat + read
 APIs and the alert intake; the worker and the graph job are separate runtimes.
 
 ```
@@ -175,17 +194,17 @@ C. FRAUD-INTELLIGENCE  (server/graph/, offline batch + read API)
 | STT            | Sarvam **streaming** STT         | WebSocket, Saaras v3. Hinglish/code-mixing, diarization, <150ms first token. |
 | LLM (detector) | Groq — Llama 3.3 70B             | OpenAI-compatible API, fast, free tier. (Sarvam's LLM is a free Hinglish-native alternative.) |
 | Push           | Expo Push API → FCM              | Outbound HTTPS from server; works from localhost. |
-| Storage        | MongoDB (Docker container)       | Persists call records, transcripts, detection results/alerts, device push tokens. Driver: `pymongo` async (`AsyncMongoClient`). Written by worker, read/served by FastAPI. |
-| Deploy         | Docker + docker-compose          | worker container + FastAPI container + MongoDB container. LiveKit is Cloud-hosted (no LiveKit container). FastAPI exposed via ngrok for Twilio webhook + browser token fetch. |
+| Storage        | MongoDB (Docker container)       | Persists call records (`calls`), alert history (`notifications`), device push tokens (`users`), plus chat + incident data. Driver: `pymongo` async (`AsyncMongoClient`). Worker writes calls; server writes/reads the rest. |
+| Deploy         | Docker + docker-compose          | worker container + FastAPI container + MongoDB container. LiveKit is Cloud-hosted (no LiveKit container). FastAPI exposed via ngrok so the phone app can reach the API. |
 
 ## Python dependencies (single uv project — add at backend root)
 
 ```bash
 uv add livekit-agents          # worker: cli.run_app + entrypoint, rtc audio frames
-uv add livekit-api             # server: mint access tokens
+uv add livekit-api             # worker group: LiveKit server SDK (not currently wired)
 uv add "fastapi[standard]"     # server: FastAPI + bundled uvicorn
-uv add websockets              # shared/sarvam_stt.py: Sarvam streaming STT WS client
-uv add httpx                   # server: Expo push call (+ outbound HTTP)
+uv add websockets              # shared/stt/sarvam.py: Sarvam streaming STT WS client
+uv add httpx                   # server: Expo push call; worker: POST /alerts
 uv add python-dotenv           # load backend/.env in both processes
 uv add pymongo                 # storage: AsyncMongoClient (worker writes, server reads)
 # groq — already present
@@ -194,7 +213,7 @@ uv add pymongo                 # storage: AsyncMongoClient (worker writes, serve
 - `pydantic` ships with FastAPI — reuse it in `detector.py` to validate the LLM JSON; don't add separately.
 - `pymongo` (not `motor`) — async support is now built into PyMongo via `AsyncMongoClient`; Motor reached end-of-life May 2026. No ODM (Beanie/MongoEngine) — pymongo + pydantic models is enough.
 - `numpy` — optional; `rtc.AudioResampler` already does the 48k→16k PCM resample Sarvam needs. Add only if manipulating raw samples.
-- `twilio` — optional; TwiML is served as static `conference.xml`. Only needed for dynamic TwiML / programmatic number management.
+- `twilio` — optional; the TwiML lives on the Twilio side (`sip/twiml-bin.xml` is the committed template that dials into the LiveKit SIP trunk). Only needed for dynamic TwiML / programmatic number management.
 
 ## Detection logic (the business logic)
 
@@ -211,7 +230,9 @@ Lives in a shared module `detector.py`, imported by the worker (and reusable by 
   urgency, UPI/payment pressure, impersonation of bank/police.
 - **Hysteresis:** do NOT alert on a single positive. Require confidence over a
   threshold AND/OR two consecutive positive windows, to avoid false alarms mid-call.
-- **After alerting:** stop or slow re-checks for that call (already warned).
+- **After alerting:** `AlertPolicy` re-arms (streak resets) rather than latching
+  once-per-call; the DB time-throttle (`claim_notification`, default 60s) is what
+  actually caps how often an alert reaches the user for a sustained scam.
 
 ## Latency notes
 
@@ -230,7 +251,7 @@ Lives in a shared module `detector.py`, imported by the worker (and reusable by 
 ## Environment variables
 
 ```
-pLIVEKIT_URL=wss://<your-project>.livekit.cloud   # from LiveKit Cloud dashboard
+LIVEKIT_URL=wss://<your-project>.livekit.cloud   # from LiveKit Cloud dashboard
 LIVEKIT_API_KEY=
 LIVEKIT_API_SECRET=
 SARVAM_API_KEY=                      # **Sarvam** streaming STT (Saaras) — from Sarvam dashboard
@@ -253,17 +274,17 @@ docker run --rm -p 27017:27017 -v mongo-data:/data/db mongo:7
 # Agent worker (long-running; spawns a subprocess per call)
 uv run python -m worker.agent dev
 
-# FastAPI server (token endpoint + alert push)
+# FastAPI server (app API: auth + chat + intelligence + alert intake)
 uv run uvicorn server.app:app --reload --port 8000
 
-# Expose FastAPI for Twilio webhook + browser token fetch (free tier OK; HTTP only)
-ngrok http 8000   # update the Twilio webhook URL after each restart (URL rotates)
+# Expose FastAPI so the phone app can reach the API (free tier OK; HTTP only)
+ngrok http 8000   # URL rotates on restart — update the app's API base URL
 
 # Everything together (worker + server + mongo)
 docker compose up
 ```
 
-> **Serving:** ngrok only carries FastAPI's HTTP (token endpoint + Twilio webhook).
+> **Serving:** ngrok only carries FastAPI's HTTP (the app's API calls).
 > WebRTC media and SIP go **directly to LiveKit Cloud**, never through ngrok — so the
 > free tier is fine (no UDP tunneling needed).
 
@@ -294,14 +315,27 @@ backend/                      # uv project root (pyproject.toml, uv.lock, .venv,
 ├── docker-compose.yml        # orchestrates worker + server + mongo (LiveKit is Cloud-hosted)
 ├── shared/                   # code imported by BOTH server and worker
 │   ├── detector.py           # scam-detection logic (Groq call + JSON schema + hysteresis)
-│   └── sarvam_stt.py         # Sarvam streaming STT WebSocket client
+│   ├── db.py                 # AsyncMongoClient handle
+│   ├── config.py             # all settings (pydantic-settings)
+│   ├── stt/                  # Sarvam streaming STT client (base + factory + sarvam)
+│   ├── models/call.py        # CallRecord (persisted per call)
+│   └── repositories/         # call_repo (calls collection) + user_directory (phone→user_id)
 ├── worker/                   # LiveKit agent worker (own container)
 │   ├── Dockerfile
-│   └── agent.py              # worker + entrypoint (audio → STT → detector → alert)
+│   ├── agent.py              # worker + entrypoint (audio → STT → detector → alert)
+│   ├── call_monitor.py       # per-track transcribe → detect → on_alert loop
+│   └── call_recorder.py      # per-call persistence + throttled POST /alerts
 └── server/                   # FastAPI app (own container)
     ├── Dockerfile
-    ├── app.py                # FastAPI: token endpoint, alert intake, Expo push
-    └── twiml/conference.xml  # TwiML for the dial-in conference
+    ├── app.py                # create_app: registers routers + ensure_indexes on startup
+    ├── deps.py               # DI wiring (db, repos, services, current-user)
+    ├── routers/              # auth, chatbot, intelligence, alerts, notifications, test
+    ├── services/             # auth_service, chatbot_service, notification_service
+    ├── repositories/         # user, chat, incident, notification, intelligence
+    ├── models/               # user, chat, incident, notification
+    ├── core/                 # security (JWT)
+    ├── chatbot/              # LangChain engine + tools + FAISS retrieval
+    └── graph/                # fraud-intelligence batch job
 ```
 
 Notes:
@@ -316,11 +350,11 @@ Notes:
 
 ## Build order (do the smallest loop first)
 
-1. `shared/detector.py` + `shared/sarvam_stt.py`, tested against a **saved audio clip**
+1. `shared/detector.py` + `shared/stt/sarvam.py`, tested against a **saved audio clip**
    (zero live credits). Prove: audio → transcript → `{scam, confidence, reason}`.
 2. `worker/agent.py` entrypoint wiring those into a LiveKit room; test via
    **browser/WebRTC** (no phone number needed).
-3. `server/app.py` token endpoint + alert push.
+3. `server/app.py` alert intake (`POST /alerts`) + Expo push.
 4. Twilio conference → SIP → LiveKit; test with two real phones.
 5. Dockerize each side (`worker/Dockerfile`, `server/Dockerfile`) and wire
    `docker-compose.yml`.

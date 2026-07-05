@@ -70,18 +70,15 @@ class ScamDetector:
 
 
 class AlertPolicy:
-    """Hysteresis: only fire after N consecutive flagged windows, once per call."""
+    """Hysteresis: fire after N consecutive flagged windows, then re-arm."""
 
     def __init__(self, consecutive_required: int = 2) -> None:
         self._required = max(1, consecutive_required)
         self._streak = 0
-        self.triggered = False
 
     def update(self, flagged: bool) -> bool:
-        if self.triggered:
-            return False
         self._streak = self._streak + 1 if flagged else 0
         if self._streak >= self._required:
-            self.triggered = True
+            self._streak = 0
             return True
         return False

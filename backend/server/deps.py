@@ -11,6 +11,7 @@ from server.core.security import decode_access_token
 from server.models.user import UserInDB
 from server.repositories.chat_repo import ChatRepository
 from server.repositories.incident_repo import IncidentRepository
+from server.repositories.notification_repo import NotificationRepository
 from server.repositories.user_repo import UserRepository
 from server.services.auth_service import AuthService
 from server.services.chatbot_service import ChatbotService
@@ -47,6 +48,12 @@ def get_incident_repository(
     db: Annotated[AsyncDatabase, Depends(get_db)],
 ) -> IncidentRepository:
     return IncidentRepository(db)
+
+
+def get_notification_repository(
+    db: Annotated[AsyncDatabase, Depends(get_db)],
+) -> NotificationRepository:
+    return NotificationRepository(db)
 
 
 @lru_cache

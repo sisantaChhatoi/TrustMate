@@ -1,7 +1,15 @@
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
-from server.deps import get_db, get_notification_service
+from server.deps import (
+    get_db,
+    get_notification_repository,
+    get_notification_service,
+)
+from server.models.notification import Notification
+from server.repositories.notification_repo import NotificationRepository
 from server.repositories.user_repo import UserRepository
 from server.services.notification_service import NotificationService, PushError
 from shared.config import settings
@@ -11,11 +19,9 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 class AlertPayload(BaseModel):
     user_id: str
-    scam: bool
     confidence: float
     reason: str
     red_flags: list[str]
-    caller: str | None = None
 
 
 @router.post("", status_code=202)
@@ -24,6 +30,7 @@ async def receive_alert(
     x_internal_key: str = Header(...),
     db=Depends(get_db),
     svc: NotificationService = Depends(get_notification_service),
+    notifications: NotificationRepository = Depends(get_notification_repository),
 ) -> dict:
     if x_internal_key != settings.internal_api_key:
         raise HTTPException(status_code=403, detail="forbidden")
@@ -42,10 +49,18 @@ async def receive_alert(
                 "confidence": payload.confidence,
                 "reason": payload.reason,
                 "red_flags": payload.red_flags,
-                "caller": payload.caller,
             },
         )
     except PushError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
+    await notifications.insert(
+        Notification(
+            user_id=payload.user_id,
+            confidence=payload.confidence,
+            reason=payload.reason,
+            red_flags=payload.red_flags,
+            sent_at=datetime.now(UTC),
+        )
+    )
     return {"status": "sent"}

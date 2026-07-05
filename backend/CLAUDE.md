@@ -27,9 +27,10 @@ This service is now **two products in one FastAPI app**:
 
 ```
 server/
-  routers/       auth, chatbot, intelligence, test
+  routers/       auth, chatbot, intelligence, alerts, notifications, test
   services/      auth_service, chatbot_service, notification_service
-  repositories/  user_repo, chat_repo, incident_repo, intelligence_repo
+  repositories/  user_repo, chat_repo, incident_repo, intelligence_repo,
+                 notification_repo
   chatbot/       engine (LangChain agent loop), llm (provider factory),
                  tools (save/update/lookup + KB search), retrieval (FAISS)
   graph/         build, analyze, geospatial, deployment, ncrb_baseline,
@@ -94,7 +95,7 @@ Mongo via `shared/db.py` (`AsyncMongoClient`); all settings in `shared/config.py
   must never share a value; a real account number (`\d{6,}`) overwrites.
 - **Push notifications:** fully wired end-to-end. Token register → store →
   `POST /test/notify` (test loop) + `POST /alerts` (production path: worker calls
-  this with `{user_id, scam, confidence, reason, red_flags, caller}`; backend looks
+  this with `{user_id, confidence, reason, red_flags}`; backend looks
   up the push token and sends via Expo Push API → FCM). FCM V1 credentials uploaded
   to EAS. APK built via `eas build -p android --profile preview`; CI/CD pipeline
   auto-builds on release tags (`.github/workflows/build-apk.yml`).
@@ -109,6 +110,11 @@ Mongo via `shared/db.py` (`AsyncMongoClient`); all settings in `shared/config.py
   `last_notified_at` gate, `ALERT_THROTTLE_SECONDS`, default 60s) so a sustained
   scam re-alerts at most once/minute. `ALERT_INTAKE_URL` is the worker→FastAPI
   target (`http://server:8000/alerts` under compose; localhost for local dev).
+- **Notification history:** on a successful push, `POST /alerts` persists the alert
+  (the payload fields + a server-stamped `sent_at`) to the `notifications` collection.
+  `GET /notifications` returns them newest-first, **JWT-scoped to the current user**
+  (no `user_id` path param — a user only ever sees their own). This is what the app
+  reads to render an alerts history.
 
 ## Core principles (do not violate)
 
@@ -140,7 +146,7 @@ Mongo via `shared/db.py` (`AsyncMongoClient`); all settings in `shared/config.py
 ## Architecture (call agent + chat API + intelligence batch)
 
 Three surfaces share **one MongoDB** (collections: `users`, `chats`,
-`incidents`, `intelligence`, `calls`). FastAPI (`server/app.py`) fronts the chat + read
+`incidents`, `intelligence`, `calls`, `notifications`). FastAPI (`server/app.py`) fronts the chat + read
 APIs and the alert intake; the worker and the graph job are separate runtimes.
 
 ```

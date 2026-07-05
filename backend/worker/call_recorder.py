@@ -91,20 +91,16 @@ class CallRecorder:
                     settings.alert_throttle_seconds,
                 )
                 return
-            await self._post_alert(participant, detection)
+            await self._post_alert(detection)
         except Exception:
             logger.exception("alert handling failed for room %r", self._room)
 
-    async def _post_alert(
-        self, participant: rtc.RemoteParticipant, detection: Detection
-    ) -> None:
+    async def _post_alert(self, detection: Detection) -> None:
         payload = {
             "user_id": self._user_id,
-            "scam": detection.scam,
             "confidence": detection.confidence,
             "reason": detection.reason,
             "red_flags": detection.red_flags,
-            "caller": participant.identity,
         }
         async with httpx.AsyncClient(timeout=10) as client:
             res = await client.post(

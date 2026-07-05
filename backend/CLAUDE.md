@@ -98,6 +98,17 @@ Mongo via `shared/db.py` (`AsyncMongoClient`); all settings in `shared/config.py
   up the push token and sends via Expo Push API → FCM). FCM V1 credentials uploaded
   to EAS. APK built via `eas build -p android --profile preview`; CI/CD pipeline
   auto-builds on release tags (`.github/workflows/build-apk.yml`).
+- **Call records + alert path (worker → `calls` collection + `POST /alerts`):**
+  On connect the worker identifies the **caller as the registered user** (the user
+  dials our agent), resolves `user_id` via `shared/repositories/user_directory.py`
+  (`phone_no` lookup), and upserts a `CallRecord` (`shared/models/call.py`) keyed on
+  `room_name` — idempotent, so re-runs on participant-join and re-dispatch don't
+  duplicate. On disconnect (`ctx.add_shutdown_callback`) it stamps `ended_at`.
+  Persistence is **best-effort**: a DB outage logs and the call is still monitored.
+  Alerts are **throttled per call** via `CallRepository.claim_notification` (atomic
+  `last_notified_at` gate, `ALERT_THROTTLE_SECONDS`, default 60s) so a sustained
+  scam re-alerts at most once/minute. `ALERT_INTAKE_URL` is the worker→FastAPI
+  target (`http://server:8000/alerts` under compose; localhost for local dev).
 
 ## Core principles (do not violate)
 
@@ -129,7 +140,7 @@ Mongo via `shared/db.py` (`AsyncMongoClient`); all settings in `shared/config.py
 ## Architecture (call agent + chat API + intelligence batch)
 
 Three surfaces share **one MongoDB** (collections: `users`, `chats`,
-`incidents`, `intelligence`). FastAPI (`server/app.py`) fronts the chat + read
+`incidents`, `intelligence`, `calls`). FastAPI (`server/app.py`) fronts the chat + read
 APIs and the alert intake; the worker and the graph job are separate runtimes.
 
 ```
@@ -211,7 +222,9 @@ Lives in a shared module `detector.py`, imported by the worker (and reusable by 
   urgency, UPI/payment pressure, impersonation of bank/police.
 - **Hysteresis:** do NOT alert on a single positive. Require confidence over a
   threshold AND/OR two consecutive positive windows, to avoid false alarms mid-call.
-- **After alerting:** stop or slow re-checks for that call (already warned).
+- **After alerting:** `AlertPolicy` re-arms (streak resets) rather than latching
+  once-per-call; the DB time-throttle (`claim_notification`, default 60s) is what
+  actually caps how often an alert reaches the user for a sustained scam.
 
 ## Latency notes
 
@@ -294,10 +307,15 @@ backend/                      # uv project root (pyproject.toml, uv.lock, .venv,
 ├── docker-compose.yml        # orchestrates worker + server + mongo (LiveKit is Cloud-hosted)
 ├── shared/                   # code imported by BOTH server and worker
 │   ├── detector.py           # scam-detection logic (Groq call + JSON schema + hysteresis)
-│   └── sarvam_stt.py         # Sarvam streaming STT WebSocket client
+│   ├── db.py                 # AsyncMongoClient handle
+│   ├── stt/                  # Sarvam streaming STT client (base + factory + sarvam)
+│   ├── models/call.py        # CallRecord (persisted per call)
+│   └── repositories/         # call_repo (calls collection) + user_directory (phone→user_id)
 ├── worker/                   # LiveKit agent worker (own container)
 │   ├── Dockerfile
-│   └── agent.py              # worker + entrypoint (audio → STT → detector → alert)
+│   ├── agent.py              # worker + entrypoint (audio → STT → detector → alert)
+│   ├── call_monitor.py       # per-track transcribe → detect → on_alert loop
+│   └── call_recorder.py      # per-call persistence + throttled POST /alerts
 └── server/                   # FastAPI app (own container)
     ├── Dockerfile
     ├── app.py                # FastAPI: token endpoint, alert intake, Expo push

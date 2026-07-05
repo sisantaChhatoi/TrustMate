@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     expo_push_url: str = "https://exp.host/--/api/v2/push/send"
     test_notification_phone: str = "+917992463077"
 
+    alert_intake_url: str = "http://localhost:8000/alerts"
+    alert_throttle_seconds: float = 60.0
+
     detector_model: str = "llama-3.3-70b-versatile"
     detector_threshold: float = 0.6
     detect_interval_seconds: float = 4.0

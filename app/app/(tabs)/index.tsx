@@ -3,7 +3,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
 import { Alert, View } from 'react-native';
 
-import { APP_NAME } from '@/constants/app';
 import { AppText } from '@/components/ui/app-text';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -11,7 +10,9 @@ import { FeatureRow } from '@/components/ui/feature-row';
 import { IconBadge } from '@/components/ui/icon-badge';
 import { Screen } from '@/components/ui/screen';
 import { SectionHeader } from '@/components/ui/section-header';
+import { TopBar } from '@/components/ui/top-bar';
 import { colors, radius, space } from '@/constants/design';
+import { flags } from '@/constants/flags';
 import { api, ApiError } from '@/lib/api';
 
 const CAPABILITIES = [
@@ -31,7 +32,7 @@ const CAPABILITIES = [
     icon: 'document-text-outline' as const,
     title: 'Tells you why',
     description:
-      'Every alert explains the red flags — OTP requests, urgency, account-block threats — in plain language.',
+      'Every alert explains the red flags - OTP requests, urgency, account-block threats - in plain language.',
   },
   {
     icon: 'language-outline' as const,
@@ -68,12 +69,11 @@ const STEPS = [
 export default function LandingScreen() {
   return (
     <Screen>
-      <BrandBar />
+      <TopBar />
       <Hero />
       <Capabilities />
       <HowItWorks />
-      <TestNotify />
-      <Footer />
+      {flags.showTestNotify && <TestNotify />}
     </Screen>
   );
 }
@@ -102,7 +102,7 @@ function TestNotify() {
         </View>
         <AppText variant="caption">Sends a sample scam alert to this device.</AppText>
         <Button
-          label={sending ? 'Sending…' : 'Send test notification'}
+          label={sending ? 'Sending...' : 'Send test notification'}
           icon="notifications-outline"
           onPress={onPress}
           full
@@ -112,19 +112,10 @@ function TestNotify() {
   );
 }
 
-function BrandBar() {
-  return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-      <IconBadge name="shield-checkmark" tone="brand" size="sm" />
-      <AppText variant="heading">{APP_NAME}</AppText>
-    </View>
-  );
-}
-
 function Hero() {
   return (
     <LinearGradient
-      colors={[colors.brand, colors.brandDark]}
+      colors={[colors.brand, colors.teal]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{ borderRadius: radius.xl, padding: space.xxl, gap: space.lg }}>
@@ -149,11 +140,9 @@ function Hero() {
         Scam calls, caught before you fall for them.
       </AppText>
       <AppText variant="body" color="rgba(255,255,255,0.88)">
-        {APP_NAME} puts an AI agent on the line that spots fraud as it happens — and warns you in
-        seconds, in words you understand.
+        An AI agent joins the line, spots fraud as it happens, and warns you in seconds - in words
+        you understand.
       </AppText>
-
-      <Button label="Activate protection" icon="shield-checkmark" variant="secondary" />
     </LinearGradient>
   );
 }
@@ -161,11 +150,7 @@ function Hero() {
 function Capabilities() {
   return (
     <View style={{ gap: space.lg }}>
-      <SectionHeader
-        eyebrow="What it does"
-        title="Protection that explains itself"
-        description="Not just a “scam” label — the reasoning behind every alert."
-      />
+      <SectionHeader eyebrow="What it does" title="Protection that explains itself" />
       <Card>
         <View style={{ gap: space.lg }}>
           {CAPABILITIES.map((c, i) => (
@@ -195,11 +180,11 @@ function HowItWorks() {
                   width: 28,
                   height: 28,
                   borderRadius: radius.pill,
-                  backgroundColor: colors.brandTint,
+                  backgroundColor: colors.tealTint,
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
-                <AppText variant="bodyStrong" color={colors.brand}>
+                <AppText variant="bodyStrong" color={colors.teal}>
                   {i + 1}
                 </AppText>
               </View>
@@ -212,24 +197,5 @@ function HowItWorks() {
         </View>
       </Card>
     </View>
-  );
-}
-
-function Footer() {
-  return (
-    <Card>
-      <View style={{ gap: space.lg, alignItems: 'flex-start' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
-          <IconBadge name="heart-outline" tone="brand" size="md" />
-          <View style={{ flex: 1 }}>
-            <AppText variant="subtitle">Built to protect the people you love</AppText>
-            <AppText variant="caption">
-              Set it up once on a parent’s phone — they stay covered automatically.
-            </AppText>
-          </View>
-        </View>
-        <Button label="Activate protection" icon="arrow-forward" full />
-      </View>
-    </Card>
   );
 }

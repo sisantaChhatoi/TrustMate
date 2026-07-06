@@ -5,4 +5,6 @@ export const flags = {
   debugSignupForm: false,
   // Same, but opens the login form instead. Takes precedence over signup.
   debugLoginForm: false,
+  // Show the test-notification card on the home screen.
+  showTestNotify: false,
 };

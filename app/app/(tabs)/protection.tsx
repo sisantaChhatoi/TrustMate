@@ -6,7 +6,7 @@ import { AppText } from '@/components/ui/app-text';
 import { Card } from '@/components/ui/card';
 import { IconBadge } from '@/components/ui/icon-badge';
 import { Screen } from '@/components/ui/screen';
-import { SectionHeader } from '@/components/ui/section-header';
+import { TopBar } from '@/components/ui/top-bar';
 import { colors, radius, space } from '@/constants/design';
 
 const STATS = [
@@ -15,33 +15,12 @@ const STATS = [
   { icon: 'checkmark-done-outline' as const, value: '9', label: 'Marked safe' },
 ];
 
-const ACTIVITY = [
-  {
-    icon: 'shield-outline' as const,
-    tone: 'danger' as const,
-    title: 'Blocked a bank-fraud call',
-    time: '2m ago',
-  },
-  {
-    icon: 'checkmark-circle-outline' as const,
-    tone: 'success' as const,
-    title: 'Marked +91 90123… safe',
-    time: '1h ago',
-  },
-  {
-    icon: 'alert-circle-outline' as const,
-    tone: 'neutral' as const,
-    title: 'Suspicious lottery SMS',
-    time: '3h ago',
-  },
-];
-
 export default function ProtectionScreen() {
   return (
     <Screen>
+      <TopBar title="Protection" />
       <StatusHero />
       <Stats />
-      <Activity />
     </Screen>
   );
 }
@@ -49,7 +28,7 @@ export default function ProtectionScreen() {
 function StatusHero() {
   return (
     <LinearGradient
-      colors={[colors.brand, colors.brandDark]}
+      colors={[colors.teal, colors.brand]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
       style={{ borderRadius: radius.xl, padding: space.xxl, gap: space.lg }}>
@@ -110,34 +89,6 @@ function Stats() {
           <AppText variant="caption">{s.label}</AppText>
         </Card>
       ))}
-    </View>
-  );
-}
-
-function Activity() {
-  return (
-    <View style={{ gap: space.lg }}>
-      <SectionHeader eyebrow="Recent" title="Activity" />
-      <Card style={{ padding: space.sm }}>
-        {ACTIVITY.map((a, i) => (
-          <View
-            key={a.title}
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              gap: space.md,
-              padding: space.md,
-              borderTopWidth: i > 0 ? 1 : 0,
-              borderTopColor: colors.border,
-            }}>
-            <IconBadge name={a.icon} tone={a.tone} size="sm" />
-            <AppText variant="bodyStrong" style={{ flex: 1 }} numberOfLines={1}>
-              {a.title}
-            </AppText>
-            <AppText variant="caption">{a.time}</AppText>
-          </View>
-        ))}
-      </Card>
     </View>
   );
 }

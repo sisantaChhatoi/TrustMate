@@ -5,27 +5,24 @@
 // ──────────────────────────────────────────────────────────────────────────
 
 export const colors = {
-  // Brand — indigo. Used for primary actions, key icons, links.
-  brand: '#4F46E5',
-  brandDark: '#4338CA',
-  // soft fill behind brand icons
-  brandTint: '#EEF2FF',
-  brandBorder: '#E0E7FF',
+  // Brand — cyber blue. Primary actions, key icons, links.
+  brand: '#2563EB',
+  brandDark: '#1D4ED8',
+  brandTint: '#EFF6FF',
+  brandBorder: '#BFDBFE',
 
-  // Ink scale — used for (almost) all text. Neutral, not tinted.
-  // headings / body / secondary / placeholder
-  ink: '#111827',
-  body: '#374151',
-  muted: '#6B7280',
-  faint: '#9CA3AF',
+  // Ink scale — slate undertone to harmonise with the blue palette.
+  ink: '#0F172A',
+  body: '#334155',
+  muted: '#64748B',
+  faint: '#94A3B8',
 
-  // Surfaces
-  bg: '#F6F7FB',
+  // Surfaces — sky-blue-tinted background, white cards.
+  bg: '#F0F7FF',
   surface: '#FFFFFF',
-  // neutral icon-badge fill
-  surfaceAlt: '#F3F4F8',
-  border: '#ECEDF3',
-  borderStrong: '#E2E4ED',
+  surfaceAlt: '#EFF6FF',
+  border: '#DBEAFE',
+  borderStrong: '#BFDBFE',
 
   // Semantic — used sparingly, only where it carries meaning.
   danger: '#DC2626',
@@ -33,6 +30,14 @@ export const colors = {
   dangerBorder: '#FECACA',
   success: '#059669',
   successTint: '#ECFDF5',
+
+  teal: '#0D9488',
+  tealTint: '#CCFBF1',
+  tealBorder: '#99F6E4',
+
+  amber: '#D97706',
+  amberTint: '#FEF3C7',
+  amberBorder: '#FDE68A',
 
   white: '#FFFFFF',
 } as const;

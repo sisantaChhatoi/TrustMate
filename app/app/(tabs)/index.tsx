@@ -19,17 +19,20 @@ const CAPABILITIES = [
   {
     icon: 'shield-checkmark-outline' as const,
     title: 'Real-time protection',
-    description: 'An AI agent listens to your live call and flags scam patterns the moment they appear.',
+    description:
+      'An AI agent listens to your live call and flags scam patterns the moment they appear.',
   },
   {
     icon: 'notifications-outline' as const,
     title: 'Instant alerts',
-    description: 'A clear warning reaches your phone even when the app is closed or in your pocket.',
+    description:
+      'A clear warning reaches your phone even when the app is closed or in your pocket.',
   },
   {
     icon: 'document-text-outline' as const,
     title: 'Tells you why',
-    description: 'Every alert explains the red flags - OTP requests, urgency, account-block threats - in plain language.',
+    description:
+      'Every alert explains the red flags - OTP requests, urgency, account-block threats - in plain language.',
   },
   {
     icon: 'language-outline' as const,

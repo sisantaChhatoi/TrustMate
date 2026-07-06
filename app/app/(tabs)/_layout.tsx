@@ -6,7 +6,7 @@ import { useEffect, useRef } from 'react';
 import { colors } from '@/constants/design';
 import { api } from '@/lib/api';
 import { getToken } from '@/lib/auth';
-import { setAlert } from '@/lib/alert-store';
+import { notifyAlertArrived } from '@/lib/alert-store';
 
 const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
@@ -19,11 +19,13 @@ export default function TabLayout() {
     });
 
     if (!isExpoGo) {
-      // Dynamic require keeps expo-notifications out of the module graph in Expo Go.
-      // Both modules run side effects on load that crash Expo Go SDK 53+.
+      // require (not import): a static import is hoisted and would load these in Expo Go,
+      // whose SDK 53+ crashes on their load-time push side effects.
+      /* eslint-disable @typescript-eslint/no-require-imports */
       const { registerForPushToken } =
         require('@/lib/notifications') as typeof import('@/lib/notifications');
       const Notifications = require('expo-notifications') as typeof import('expo-notifications');
+      /* eslint-enable @typescript-eslint/no-require-imports */
 
       registerForPushToken()
         .then((token) => (token ? api.registerPushToken(token) : null))
@@ -32,25 +34,17 @@ export default function TabLayout() {
       const notifListener = Notifications.addNotificationReceivedListener((notification) => {
         const data = notification.request.content.data as Record<string, unknown>;
         if (data?.type === 'scam_alert') {
-          setAlert({
-            scam: true,
-            confidence: (data.confidence as number) ?? 1,
-            reason: (data.reason as string) ?? '',
-            red_flags: (data.red_flags as string[]) ?? [],
-            caller: (data.caller as string | null) ?? null,
-            received_at: new Date().toISOString(),
-          });
+          notifyAlertArrived();
         }
       });
 
-      const responseListener = Notifications.addNotificationResponseReceivedListener(
-        (response) => {
-          const data = response.notification.request.content.data as Record<string, unknown>;
-          if (data?.type === 'scam_alert') {
-            router.navigate('/(tabs)/alerts');
-          }
-        },
-      );
+      const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
+        const data = response.notification.request.content.data as Record<string, unknown>;
+        if (data?.type === 'scam_alert') {
+          // @ts-ignore
+          router.navigate('/(tabs)/alerts');
+        }
+      });
 
       cleanupRef.current = () => {
         notifListener.remove();
@@ -102,10 +96,7 @@ export default function TabLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="alerts"
-        options={{ href: null }}
-      />
+      <Tabs.Screen name="alerts" options={{ href: null }} />
     </Tabs>
   );
 }

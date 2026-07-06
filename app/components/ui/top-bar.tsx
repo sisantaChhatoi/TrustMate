@@ -18,7 +18,13 @@ export function TopBar({ title }: { title?: string }) {
 
   useEffect(() => {
     if (_userCache) return;
-    api.me().then((u) => { _userCache = u; setUser(u); }).catch(() => null);
+    api
+      .me()
+      .then((u) => {
+        _userCache = u;
+        setUser(u);
+      })
+      .catch(() => null);
   }, []);
 
   const initial = user?.name?.[0]?.toUpperCase() ?? '?';
@@ -33,6 +39,7 @@ export function TopBar({ title }: { title?: string }) {
         <View style={styles.right}>
           <Pressable
             hitSlop={8}
+            // @ts-ignore hidden tab (href:null) is excluded from typed routes
             onPress={() => router.navigate('/(tabs)/alerts')}
             style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>
             <Ionicons name="notifications-outline" size={22} color={colors.muted} />
@@ -42,7 +49,9 @@ export function TopBar({ title }: { title?: string }) {
             onPress={() => setShowProfile(true)}
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>
             <View style={styles.avatar}>
-              <AppText variant="label" color={colors.white}>{initial}</AppText>
+              <AppText variant="label" color={colors.white}>
+                {initial}
+              </AppText>
             </View>
           </Pressable>
         </View>
@@ -57,7 +66,9 @@ export function TopBar({ title }: { title?: string }) {
           <Pressable style={styles.card} onPress={() => {}}>
             <View style={styles.profileHeader}>
               <View style={styles.avatarLg}>
-                <AppText variant="heading" color={colors.white}>{initial}</AppText>
+                <AppText variant="heading" color={colors.white}>
+                  {initial}
+                </AppText>
               </View>
               <View style={{ flex: 1 }}>
                 <AppText variant="subtitle">{user?.name ?? '—'}</AppText>
@@ -82,7 +93,9 @@ export function TopBar({ title }: { title?: string }) {
                 router.replace('/onboarding');
               }}>
               <Ionicons name="log-out-outline" size={16} color={colors.danger} />
-              <AppText variant="bodyStrong" color={colors.danger}>Sign out</AppText>
+              <AppText variant="bodyStrong" color={colors.danger}>
+                Sign out
+              </AppText>
             </Pressable>
           </Pressable>
         </Pressable>

@@ -74,6 +74,13 @@ export type Chat = { id: string; user_id: string; created_at: string };
 export type ChatMessage = { role: 'user' | 'assistant'; content: string; created_at?: string };
 export type ChatDetail = Chat & { messages: ChatMessage[] };
 
+export type Notification = {
+  confidence: number;
+  reason: string;
+  red_flags: string[];
+  sent_at: string;
+};
+
 export const api = {
   signup: (payload: SignupPayload) =>
     request<AuthResponse>('/auth/signup', { method: 'POST', body: payload }),
@@ -90,4 +97,5 @@ export const api = {
   createChat: () => request<Chat>('/chatbot/chats', { method: 'POST', auth: true }),
   listChats: () => request<Chat[]>('/chatbot/chats', { auth: true }),
   getChat: (id: string) => request<ChatDetail>(`/chatbot/chats/${id}`, { auth: true }),
+  getNotifications: () => request<Notification[]>('/notifications', { auth: true }),
 };

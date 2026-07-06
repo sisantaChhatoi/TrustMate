@@ -163,7 +163,8 @@ export default function ChatScreen() {
                 Ask anything suspicious
               </AppText>
               <AppText variant="caption" style={{ textAlign: 'center' }}>
-                Describe a call, message, or number you're unsure about and get a risk assessment.
+                Describe a call, message, or number you&apos;re unsure about and get a risk
+                assessment.
               </AppText>
             </View>
           ) : (
@@ -245,9 +246,13 @@ function HistoryView({
     return (
       <View style={styles.empty}>
         <Ionicons name="chatbubbles-outline" size={48} color={colors.faint} />
-        <AppText variant="subtitle" color={colors.muted}>No chats yet</AppText>
+        <AppText variant="subtitle" color={colors.muted}>
+          No chats yet
+        </AppText>
         <Pressable onPress={onNewChat} style={styles.newChatBtn}>
-          <AppText variant="bodyStrong" color={colors.white}>Start a new chat</AppText>
+          <AppText variant="bodyStrong" color={colors.white}>
+            Start a new chat
+          </AppText>
         </Pressable>
       </View>
     );
@@ -293,9 +298,7 @@ function ToggleBtn({
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.toggleBtn, active && styles.toggleBtnActive]}>
+    <Pressable onPress={onPress} style={[styles.toggleBtn, active && styles.toggleBtnActive]}>
       <AppText variant="bodyStrong" color={active ? colors.brand : colors.muted}>
         {label}
       </AppText>

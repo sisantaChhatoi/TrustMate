@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { fetch } from 'expo/fetch';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -16,7 +17,7 @@ import { AppText } from '@/components/ui/app-text';
 import { TopBar } from '@/components/ui/top-bar';
 import { API_URL } from '@/constants/config';
 import { colors, radius, space } from '@/constants/design';
-import { api, type Chat, type ChatMessage } from '@/lib/api';
+import { api, type Chat } from '@/lib/api';
 import { getToken } from '@/lib/auth';
 
 type Msg = { id: string; role: 'user' | 'assistant'; content: string };

@@ -65,6 +65,7 @@ export default function LandingScreen() {
       ) : (
         <GetStarted />
       )}
+      <LinkCheckerCard />
       <ReportFooter />
       {flags.showTestNotify && <TestNotify />}
     </Screen>
@@ -162,6 +163,29 @@ function Dashboard({ stats, recent }: { stats: CallStats | null; recent: CallSum
         </View>
       ) : null}
     </>
+  );
+}
+
+function LinkCheckerCard() {
+  return (
+    <Card>
+      <View style={{ gap: space.md }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
+          <IconBadge name="link-outline" tone="brand" size="sm" />
+          <AppText variant="subtitle">Link checker</AppText>
+        </View>
+        <AppText variant="caption">
+          Got a suspicious link in a message or email? Check it instantly against Google Safe
+          Browsing and VirusTotal.
+        </AppText>
+        <Button
+          label="Check a link"
+          icon="shield-checkmark-outline"
+          onPress={() => router.navigate('/link-checker')}
+          full
+        />
+      </View>
+    </Card>
   );
 }
 

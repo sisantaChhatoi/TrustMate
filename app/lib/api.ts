@@ -88,11 +88,60 @@ export type CallStats = {
   last_scanned_at: string | null;
 };
 
+export type LinkCheckResult = {
+  url: string;
+  verdict: 'safe' | 'unsafe';
+  google_safe_browsing: { safe: boolean; threat: string | null };
+  virustotal: { safe: boolean | null; malicious: number; suspicious: number; note: string | null };
+};
+
 export type CallSummary = {
   started_at: string;
   ended_at: string | null;
   flagged: boolean;
 };
+
+export type FraudRing = {
+  ring_id: string;
+  size: number;
+  incident_count: number;
+  mule_accounts: string[];
+  phone_numbers: string[];
+  victim_regions: string[];
+  scam_types: string[];
+  total_amount_demanded: number;
+  total_amount_lost: number;
+};
+
+export type FraudHotspot = {
+  region: string;
+  state: string;
+  lat: number;
+  lon: number;
+  incident_count: number;
+  total_amount_demanded: number;
+  total_amount_lost: number;
+  scam_types: string[];
+  risk_level: 'low' | 'medium' | 'high';
+};
+
+export type HighRiskAccount = {
+  node: string;
+  type: string;
+  value: string;
+  incident_count: number;
+  risk_level: 'low' | 'medium' | 'high';
+  linked_entities: { node: string; type: string; value: string }[];
+  ring_id: string | null;
+};
+
+export type IntelligenceRings = { generated_at: string; rings: FraudRing[] };
+export type IntelligenceHotspots = {
+  generated_at: string;
+  hotspots: FraudHotspot[];
+  deployment_strategy: Record<string, unknown>;
+};
+export type IntelligenceAccounts = { generated_at: string; accounts: HighRiskAccount[] };
 
 export const api = {
   signup: (payload: SignupPayload) =>
@@ -114,4 +163,12 @@ export const api = {
   getCallStats: () => request<CallStats>('/calls/stats', { auth: true }),
   getRecentCalls: (limit: number) =>
     request<CallSummary[]>(`/calls?limit=${limit}`, { auth: true }),
+  checkLink: (url: string) =>
+    request<LinkCheckResult>('/link-check', { method: 'POST', body: { url }, auth: true }),
+  getRings: () => request<IntelligenceRings>('/intelligence/rings', { auth: true }),
+  getHotspots: () => request<IntelligenceHotspots>('/intelligence/hotspots', { auth: true }),
+  getHighRiskAccounts: (minRisk = 'medium') =>
+    request<IntelligenceAccounts>(`/intelligence/high-risk-accounts?min_risk=${minRisk}`, {
+      auth: true,
+    }),
 };

@@ -1,6 +1,7 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from server.graph.scheduler import start_scheduler, stop_scheduler
 from server.repositories.chat_repo import ChatRepository
@@ -13,6 +14,7 @@ from server.routers import (
     calls,
     chatbot,
     intelligence,
+    link_check,
     notifications,
     test,
 )
@@ -33,12 +35,19 @@ async def lifespan(_: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="ScamCall API", lifespan=lifespan)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.include_router(auth.router)
     app.include_router(chatbot.router)
     app.include_router(intelligence.router)
     app.include_router(alerts.router)
     app.include_router(calls.router)
     app.include_router(notifications.router)
+    app.include_router(link_check.router)
     app.include_router(test.router)
     return app
 

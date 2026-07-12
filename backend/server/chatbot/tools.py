@@ -2,6 +2,7 @@ from typing import Literal
 
 from langchain_core.tools import BaseTool, tool
 
+from server.chatbot.link_safety import check_gsb, check_vt
 from server.chatbot.retrieval import retrieve
 from server.models.incident import Incident
 from server.repositories.incident_repo import IncidentRepository
@@ -13,6 +14,30 @@ _REPORT_FIELDS = [
     "victim_region",
     "scam_type",
 ]
+
+
+@tool
+async def check_link_safety(url: str) -> str:
+    """Check whether a URL shared by the user is safe or malicious.
+    Call this whenever the user pastes or mentions any link/URL.
+    Returns a verdict (safe/unsafe), threat type if flagged, and VirusTotal stats."""
+    try:
+        gsb, vt = await check_gsb(url), await check_vt(url)
+        overall_safe = gsb["safe"] and (vt["safe"] is not False)
+        verdict = "SAFE" if overall_safe else "UNSAFE ⚠️"
+        parts = [f"Link verdict: {verdict}", f"URL: {url}"]
+        if not gsb["safe"] and gsb.get("threat"):
+            parts.append(f"Google Safe Browsing: flagged as {gsb['threat'].replace('_', ' ').lower()}")
+        else:
+            parts.append("Google Safe Browsing: clean")
+        if vt.get("note") == "queued":
+            parts.append("VirusTotal: URL submitted for scanning (check back later)")
+        else:
+            mal, sus = vt.get("malicious", 0), vt.get("suspicious", 0)
+            parts.append(f"VirusTotal: {mal} malicious, {sus} suspicious detections")
+        return "\n".join(parts)
+    except Exception as e:
+        return f"Could not check link: {e}"
 
 
 @tool
@@ -147,6 +172,7 @@ def build_chat_tools(
         )
 
     return [
+        check_link_safety,
         search_fraud_knowledge,
         save_incident,
         update_incident,

@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     sarvam_api_key: str = ""
 
+    google_safe_browsing_key: str = ""
+    virustotal_key: str = ""
+
     stt_provider: str = "sarvam"
     stt_language_code: str = "unknown"
     stt_model: str = "saaras:v3"

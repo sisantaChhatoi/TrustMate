@@ -25,12 +25,13 @@ Base URL is `API_URL` in `constants/config.ts`; the typed client is `lib/api.ts`
   `POST /auth/push-token`.
 - **Push test:** `POST /test/notify` — logs the JWT user's real phone, sends the
   push to the configured test number. Wired to the Test-Notify button on home.
-- **Chat — NOT consumed yet:** `POST /chatbot/chats`, `GET /chatbot/chats`,
-  `GET /chatbot/chats/{id}`, `POST /chatbot/chats/{id}/messages` → an **SSE
-  stream** of the assistant reply. A chat screen would create a chat, then stream
-  messages (use an SSE/`fetch`-stream client, not plain JSON).
-- **Intelligence — NOT consumed yet:** `GET /intelligence/rings`, `/hotspots`,
-  `/high-risk-accounts` → precomputed JSON for a fraud-map / dashboard screen.
+- **Chat — wired** (`app/(tabs)/chat.tsx`): `POST /chatbot/chats`, `GET /chatbot/chats`,
+  `GET /chatbot/chats/{id}`, `POST /chatbot/chats/{id}/messages` → SSE stream
+  consumed via `expo/fetch`. Assistant messages render markdown (`components/ui/markdown-text.tsx`).
+  `expo-secure-store` has a `Platform.OS === 'web'` → `localStorage` fallback throughout.
+- **Intelligence — wired** (`app/hotspots.tsx`): `GET /intelligence/rings`, `/hotspots`,
+  `/high-risk-accounts` → fraud rings, hotspot city list, high-risk account table, and
+  an interactive Leaflet map (`components/ui/fraud-map.tsx`) rendered in an iframe on web.
 
 ### State / gotchas
 
@@ -40,7 +41,8 @@ Base URL is `API_URL` in `constants/config.ts`; the typed client is `lib/api.ts`
 - `app/(tabs)/protection.tsx` currently renders **hardcoded mock stats**
   ("12 calls screened" …) — placeholder, not real data.
 - Tabs are `index` (home), `alerts` (live scam alert screen), and `protection`.
-  **No chat or intelligence screen exists yet.**
+  Chat (`chat.tsx`) and Hotspots (`hotspots.tsx`) are navigated to from the home tab
+  (not tab-bar items — they live in `app/` as stack screens).
 - Push notifications: **fully wired**. Firebase/FCM V1 credentials set up, EAS APK
   built and tested. `POST /alerts` on the backend is the production intake (worker
   → backend → FCM → phone). Tap a notification → app opens the Alerts tab.

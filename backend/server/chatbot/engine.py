@@ -1,3 +1,4 @@
+import logging
 from collections.abc import AsyncIterator
 from typing import cast
 
@@ -14,6 +15,8 @@ from langchain_core.tools import BaseTool
 
 from server.chatbot.llm import make_chat_llm
 from server.models.chat import Message
+
+logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = (
     "You are a calm, non-alarmist fraud-safety assistant for an Indian scam-protection "
@@ -32,7 +35,12 @@ _SYSTEM_PROMPT = (
     "they were told to pay, their city) together in ONE natural question. Settle with what you "
     "get within 2-3 clarifications — never re-ask the same field.\n"
     "5. Never ask the user for an OTP, PIN, password, or card number yourself. Reassure them "
-    "that hanging up and reporting (1930 / cybercrime.gov.in) is the right move."
+    "that hanging up and reporting (1930 / cybercrime.gov.in) is the right move.\n"
+    "6. LINK SAFETY (mandatory): if the user's message contains any URL or link, you MUST call "
+    "check_link_safety with that URL before replying. Read the tool result carefully — "
+    "if it says 'Link verdict: SAFE', tell the user the link is safe and they can open it; "
+    "if it says 'Link verdict: UNSAFE', warn them not to open it and explain the threat. "
+    "Never give a safety verdict before calling the tool, and never contradict what the tool returned."
 )
 
 _MAX_TOOL_ROUNDS = 5
@@ -69,20 +77,33 @@ class ChatbotEngine:
             HumanMessage(user_message),
         ]
 
-        for _ in range(_MAX_TOOL_ROUNDS):
+        for round_num in range(_MAX_TOOL_ROUNDS):
             gathered: AIMessageChunk | None = None
+            # Buffer text — only yield once we know there are no tool calls.
+            # If the model emits text AND tool calls in the same round, suppressing
+            # the text avoids leaking pre-tool "thinking" to the user.
+            text_buffer: list[str] = []
             async for raw in llm.astream(messages):
                 chunk = cast(AIMessageChunk, raw)
                 if isinstance(chunk.content, str) and chunk.content:
-                    yield chunk.content
+                    text_buffer.append(chunk.content)
                 gathered = chunk if gathered is None else gathered + chunk
 
             if gathered is None:
                 return
             messages.append(gathered)
+
             if not gathered.tool_calls:
+                # Final response — stream everything we buffered
+                for text in text_buffer:
+                    yield text
                 return
 
+            logger.info(
+                "round %d: calling tools %s",
+                round_num,
+                [c["name"] for c in gathered.tool_calls],
+            )
             for call in gathered.tool_calls:
                 tool = by_name.get(call["name"])
                 result = (
@@ -90,6 +111,7 @@ class ChatbotEngine:
                     if tool is not None
                     else f"unknown tool: {call['name']}"
                 )
+                logger.info("tool %s → %s", call["name"], str(result)[:200])
                 messages.append(
                     ToolMessage(content=str(result), tool_call_id=call["id"])
                 )

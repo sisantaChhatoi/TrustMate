@@ -48,12 +48,20 @@ Mongo via `shared/db.py` (`AsyncMongoClient`); all settings in `shared/config.py
 - Endpoints: `POST /chatbot/chats`, `GET /chatbot/chats`,
   `GET /chatbot/chats/{id}`, `POST /chatbot/chats/{id}/messages` (SSE).
 - Tools live in `chatbot/tools.py` — **field semantics are in the tool
-  docstrings, not the prompt**: `search_fraud_knowledge` (FAISS over the KB),
+  docstrings, not the prompt**: `check_link_safety` (Google Safe Browsing + VirusTotal,
+  called whenever a URL appears in chat), `search_fraud_knowledge` (FAISS over the KB),
   `save_incident` (fill-once-then-lock merge), `update_incident` (corrections
   only), `lookup_fraud_network` (point lookup of a number/account/UPI across
   *other* incidents). Built per-request with session/user bound.
-- Prompt (`engine.py`): capture-first, ground via the search tool, prefer
-  Hindi/Hinglish, settle in 2–3 clarifications, never ask for OTP/PIN.
+- **Shared link-safety helpers** live in `chatbot/link_safety.py` (not in
+  `routers/link_check.py`) to avoid a circular import: `deps.py` → `tools.py` →
+  `link_check.py` → `deps.py`. Both the `/link-check` router and the chat tool
+  import `check_gsb`/`check_vt` from there.
+- Prompt (`engine.py`): capture-first, check links first, ground via the search tool,
+  prefer Hindi/Hinglish, settle in 2–3 clarifications, never ask for OTP/PIN.
+- **Streaming loop** buffers text per round and only yields it when there are no tool
+  calls; this prevents pre-tool "thinking" text leaking to the user before the tool
+  result is known. Each tool call is logged at INFO level for debuggability.
 
 ### Fraud-intelligence graph (the strong part)
 - **Scheduled rebuild:** `server/graph/scheduler.py` runs `pipeline.run()` on

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AppText } from '@/components/ui/app-text';
 import { BackHeader } from '@/components/ui/back-header';
@@ -10,12 +11,7 @@ import { IconBadge } from '@/components/ui/icon-badge';
 import { FraudMap } from '@/components/ui/fraud-map';
 import { SectionHeader } from '@/components/ui/section-header';
 import { colors, gradients, radius, space } from '@/constants/design';
-import {
-  api,
-  type FraudHotspot,
-  type FraudRing,
-  type HighRiskAccount,
-} from '@/lib/api';
+import { api, type FraudHotspot, type FraudRing, type HighRiskAccount } from '@/lib/api';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -94,10 +90,7 @@ function HotspotCard({ h }: { h: FraudHotspot }) {
 }
 
 function RingCard({ r, index }: { r: FraudRing; index: number }) {
-  const entities = [
-    ...r.phone_numbers.slice(0, 2),
-    ...r.mule_accounts.slice(0, 2),
-  ].slice(0, 3);
+  const entities = [...r.phone_numbers.slice(0, 2), ...r.mule_accounts.slice(0, 2)].slice(0, 3);
 
   return (
     <View style={styles.row}>
@@ -175,131 +168,127 @@ export default function HotspotsScreen() {
   const hasData = rings.length > 0 || hotspots.length > 0 || accounts.length > 0;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: colors.bg }}
-      contentContainerStyle={{ gap: space.lg, paddingBottom: space.huge }}>
-      <BackHeader title="Fraud hotspots" />
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.bg }} edges={['top']}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ gap: space.lg, paddingBottom: space.huge }}>
+        <BackHeader title="Fraud hotspots" />
 
-      <View style={{ paddingHorizontal: space.lg, gap: space.lg }}>
-        <GradientPanel colors={gradients.heroLight}>
-          <AppText variant="title">Scam networks, mapped</AppText>
-          <AppText variant="body">
-            Live intelligence from the fraud graph — rings, hotspot cities, and flagged accounts
-            built from real incident reports.
-          </AppText>
-          {generatedAt && (
-            <AppText variant="caption">
-              Updated {new Date(generatedAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+        <View style={{ paddingHorizontal: space.lg, gap: space.lg }}>
+          <GradientPanel colors={gradients.heroLight}>
+            <AppText variant="title">Scam networks, mapped</AppText>
+            <AppText variant="body">
+              Live intelligence from the fraud graph — rings, hotspot cities, and flagged accounts
+              built from real incident reports.
             </AppText>
-          )}
-        </GradientPanel>
-
-        {loading && (
-          <View style={{ paddingVertical: space.huge, alignItems: 'center' }}>
-            <ActivityIndicator color={colors.brand} />
-          </View>
-        )}
-
-        {error && (
-          <Card variant="danger">
-            <AppText variant="body" color={colors.danger}>
-              Could not load intelligence data. Make sure the server is running.
-            </AppText>
-          </Card>
-        )}
-
-        {!loading && !error && !hasData && (
-          <Card>
-            <View style={{ alignItems: 'center', gap: space.md, paddingVertical: space.lg }}>
-              <Ionicons name="analytics-outline" size={36} color={colors.faint} />
-              <AppText variant="body" style={{ textAlign: 'center' }}>
-                No intelligence data yet. The graph builds automatically after incidents are
-                reported via chat.
+            {generatedAt && (
+              <AppText variant="caption">
+                Updated {new Date(generatedAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
               </AppText>
-            </View>
-          </Card>
-        )}
-
-        {!loading && !error && hasData && (
-          <>
-            {/* Interactive map */}
-            {hotspots.length > 0 && (
-              <View style={{ gap: space.md }}>
-                <SectionHeader eyebrow="Hotspot map" icon="map-outline" />
-                <FraudMap hotspots={hotspots} />
-              </View>
             )}
+          </GradientPanel>
 
-            {/* Hotspot cities */}
-            <View style={{ gap: space.md }}>
-              <SectionHeader eyebrow="Hotspot cities" icon="location-outline" />
-              {hotspots.length === 0 ? (
-                <EmptyState icon="location-outline" message="No geocoded hotspots yet." />
-              ) : (
-                <Card>
-                  <View style={{ gap: space.lg }}>
-                    {hotspots.slice(0, 10).map((h, i) => (
-                      <View key={`${h.region}-${i}`} style={{ gap: space.lg }}>
-                        {i > 0 && <View style={styles.divider} />}
-                        <HotspotCard h={h} />
-                      </View>
-                    ))}
-                  </View>
-                </Card>
-              )}
+          {loading && (
+            <View style={{ paddingVertical: space.huge, alignItems: 'center' }}>
+              <ActivityIndicator color={colors.brand} />
             </View>
+          )}
 
-            {/* Fraud rings */}
-            <View style={{ gap: space.md }}>
-              <SectionHeader eyebrow="Fraud rings" icon="git-network-outline" />
-              {rings.length === 0 ? (
-                <EmptyState
-                  icon="git-network-outline"
-                  message="No fraud rings detected yet."
-                />
-              ) : (
-                <Card>
-                  <View style={{ gap: space.lg }}>
-                    {rings.slice(0, 8).map((r, i) => (
-                      <View key={r.ring_id} style={{ gap: space.lg }}>
-                        {i > 0 && <View style={styles.divider} />}
-                        <RingCard r={r} index={i} />
-                      </View>
-                    ))}
-                  </View>
-                </Card>
+          {error && (
+            <Card variant="danger">
+              <AppText variant="body" color={colors.danger}>
+                Could not load intelligence data. Make sure the server is running.
+              </AppText>
+            </Card>
+          )}
+
+          {!loading && !error && !hasData && (
+            <Card>
+              <View style={{ alignItems: 'center', gap: space.md, paddingVertical: space.lg }}>
+                <Ionicons name="analytics-outline" size={36} color={colors.faint} />
+                <AppText variant="body" style={{ textAlign: 'center' }}>
+                  No intelligence data yet. The graph builds automatically after incidents are
+                  reported via chat.
+                </AppText>
+              </View>
+            </Card>
+          )}
+
+          {!loading && !error && hasData && (
+            <>
+              {/* Interactive map */}
+              {hotspots.length > 0 && (
+                <View style={{ gap: space.md }}>
+                  <SectionHeader eyebrow="Hotspot map" icon="map-outline" />
+                  <FraudMap hotspots={hotspots} />
+                </View>
               )}
-            </View>
 
-            {/* High-risk accounts */}
-            <View style={{ gap: space.md }}>
-              <SectionHeader eyebrow="High-risk accounts" icon="card-outline" />
-              {accounts.length === 0 ? (
-                <EmptyState
-                  icon="card-outline"
-                  message="No high-risk accounts flagged yet."
-                />
-              ) : (
-                <Card>
-                  <View style={{ gap: space.lg }}>
-                    {accounts.slice(0, 10).map((a, i) => (
-                      <View key={a.node} style={{ gap: space.lg }}>
-                        {i > 0 && <View style={styles.divider} />}
-                        <AccountRow a={a} />
-                      </View>
-                    ))}
-                  </View>
-                </Card>
-              )}
-            </View>
-          </>
-        )}
+              {/* Hotspot cities */}
+              <View style={{ gap: space.md }}>
+                <SectionHeader eyebrow="Hotspot cities" icon="location-outline" />
+                {hotspots.length === 0 ? (
+                  <EmptyState icon="location-outline" message="No geocoded hotspots yet." />
+                ) : (
+                  <Card>
+                    <View style={{ gap: space.lg }}>
+                      {hotspots.slice(0, 10).map((h, i) => (
+                        <View key={`${h.region}-${i}`} style={{ gap: space.lg }}>
+                          {i > 0 && <View style={styles.divider} />}
+                          <HotspotCard h={h} />
+                        </View>
+                      ))}
+                    </View>
+                  </Card>
+                )}
+              </View>
 
-        <AppText variant="caption" style={{ textAlign: 'center' }}>
-          These are signals for awareness, not legal determinations.
-        </AppText>
-      </View>
-    </ScrollView>
+              {/* Fraud rings */}
+              <View style={{ gap: space.md }}>
+                <SectionHeader eyebrow="Fraud rings" icon="git-network-outline" />
+                {rings.length === 0 ? (
+                  <EmptyState icon="git-network-outline" message="No fraud rings detected yet." />
+                ) : (
+                  <Card>
+                    <View style={{ gap: space.lg }}>
+                      {rings.slice(0, 8).map((r, i) => (
+                        <View key={r.ring_id} style={{ gap: space.lg }}>
+                          {i > 0 && <View style={styles.divider} />}
+                          <RingCard r={r} index={i} />
+                        </View>
+                      ))}
+                    </View>
+                  </Card>
+                )}
+              </View>
+
+              {/* High-risk accounts */}
+              <View style={{ gap: space.md }}>
+                <SectionHeader eyebrow="High-risk accounts" icon="card-outline" />
+                {accounts.length === 0 ? (
+                  <EmptyState icon="card-outline" message="No high-risk accounts flagged yet." />
+                ) : (
+                  <Card>
+                    <View style={{ gap: space.lg }}>
+                      {accounts.slice(0, 10).map((a, i) => (
+                        <View key={a.node} style={{ gap: space.lg }}>
+                          {i > 0 && <View style={styles.divider} />}
+                          <AccountRow a={a} />
+                        </View>
+                      ))}
+                    </View>
+                  </Card>
+                )}
+              </View>
+            </>
+          )}
+
+          <AppText variant="caption" style={{ textAlign: 'center' }}>
+            These are signals for awareness, not legal determinations.
+          </AppText>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

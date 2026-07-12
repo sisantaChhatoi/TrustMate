@@ -154,13 +154,17 @@ function ResultCard({ result }: { result: LinkCheckResult }) {
             <View style={{ flexDirection: 'row', gap: space.lg }}>
               <AppText variant="caption">
                 Malicious:{' '}
-                <AppText variant="caption" color={result.virustotal.malicious > 0 ? colors.danger : colors.success}>
+                <AppText
+                  variant="caption"
+                  color={result.virustotal.malicious > 0 ? colors.danger : colors.success}>
                   {result.virustotal.malicious}
                 </AppText>
               </AppText>
               <AppText variant="caption">
                 Suspicious:{' '}
-                <AppText variant="caption" color={result.virustotal.suspicious > 0 ? colors.amber : colors.success}>
+                <AppText
+                  variant="caption"
+                  color={result.virustotal.suspicious > 0 ? colors.amber : colors.success}>
                   {result.virustotal.suspicious}
                 </AppText>
               </AppText>

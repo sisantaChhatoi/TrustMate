@@ -39,7 +39,13 @@ export function FraudMap({ hotspots }: { hotspots: FraudHotspot[] }) {
   if (mapped.length === 0) return null;
 
   return (
-    <View style={{ height: 280, borderRadius: radius.xl, overflow: 'hidden', backgroundColor: colors.card }}>
+    <View
+      style={{
+        height: 280,
+        borderRadius: radius.xl,
+        overflow: 'hidden',
+        backgroundColor: colors.card,
+      }}>
       <WebView
         source={{ html: buildMapHtml(hotspots) }}
         style={{ flex: 1 }}

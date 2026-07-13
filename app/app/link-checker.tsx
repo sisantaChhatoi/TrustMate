@@ -204,6 +204,89 @@ function ResultCard({ result }: { result: LinkCheckResult }) {
         </Card>
       )}
 
+      {/* Domain Age */}
+      <Card>
+        <View style={{ gap: space.sm }}>
+          <View style={styles.sourceRow}>
+            <Ionicons name="calendar-outline" size={16} color={colors.muted} />
+            <AppText variant="bodyStrong">Domain age</AppText>
+            {result.domain_age.age_days !== null && (
+              <View
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor:
+                      result.domain_age.age_days < 30
+                        ? colors.dangerTint
+                        : result.domain_age.age_days < 90
+                        ? colors.amberTint
+                        : colors.successTint,
+                  },
+                ]}>
+                <AppText
+                  variant="label"
+                  color={
+                    result.domain_age.age_days < 30
+                      ? colors.danger
+                      : result.domain_age.age_days < 90
+                      ? colors.amber
+                      : colors.success
+                  }>
+                  {result.domain_age.age_days < 30
+                    ? `${result.domain_age.age_days}d old`
+                    : result.domain_age.age_days < 365
+                    ? `${result.domain_age.age_days}d old`
+                    : `${Math.floor(result.domain_age.age_days / 365)}y old`}
+                </AppText>
+              </View>
+            )}
+          </View>
+          {result.domain_age.age_days !== null ? (
+            <AppText variant="caption" color={colors.muted}>
+              {result.domain_age.domain} registered on {result.domain_age.created}
+              {result.domain_age.age_days < 30
+                ? ' — very new domain, high scam risk'
+                : result.domain_age.age_days < 90
+                ? ' — less than 3 months old'
+                : ' — established domain'}
+            </AppText>
+          ) : (
+            <AppText variant="caption" color={colors.muted}>
+              Could not determine domain age
+            </AppText>
+          )}
+        </View>
+      </Card>
+
+      {/* urlscan.io */}
+      {result.urlscan.scanned && (
+        <Card>
+          <View style={{ gap: space.sm }}>
+            <View style={styles.sourceRow}>
+              <Ionicons name="scan-outline" size={16} color={colors.muted} />
+              <AppText variant="bodyStrong">urlscan.io</AppText>
+              {result.urlscan.note === 'timeout' ? (
+                <View style={[styles.chip, { backgroundColor: colors.amberTint }]}>
+                  <AppText variant="label" color={colors.amber}>Timeout</AppText>
+                </View>
+              ) : result.urlscan.malicious !== null ? (
+                <StatusChip safe={!result.urlscan.malicious} />
+              ) : null}
+            </View>
+            {result.urlscan.score !== null && (
+              <AppText variant="caption" color={colors.muted}>
+                Threat score: {result.urlscan.score}/100
+              </AppText>
+            )}
+            {result.urlscan.brands.length > 0 && (
+              <AppText variant="caption" color={colors.danger}>
+                Brand impersonation detected: {result.urlscan.brands.join(', ')}
+              </AppText>
+            )}
+          </View>
+        </Card>
+      )}
+
       {/* Google Safe Browsing */}
       <Card>
         <View style={{ gap: space.sm }}>

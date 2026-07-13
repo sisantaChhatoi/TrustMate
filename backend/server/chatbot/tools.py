@@ -3,7 +3,7 @@ from typing import Literal
 
 from langchain_core.tools import BaseTool, tool
 
-from server.chatbot.link_safety import analyze_url, check_gsb, check_vt, unshorten
+from server.chatbot.link_safety import analyze_url, check_domain_age, check_gsb, check_vt, unshorten
 from server.chatbot.retrieval import retrieve
 from server.models.incident import Incident
 from server.repositories.incident_repo import IncidentRepository
@@ -25,27 +25,40 @@ async def check_link_safety(url: str) -> str:
     resolved = await unshorten(url)
     heuristics = analyze_url(resolved)
 
-    gsb_r, vt_r = await asyncio.gather(
-        check_gsb(resolved), check_vt(resolved), return_exceptions=True
+    gsb_r, vt_r, age_r = await asyncio.gather(
+        check_gsb(resolved), check_vt(resolved), check_domain_age(resolved), return_exceptions=True
     )
     gsb = gsb_r if isinstance(gsb_r, dict) else None
     vt = vt_r if isinstance(vt_r, dict) else None
+    age = age_r if isinstance(age_r, dict) else None
 
-    rep_score = 0
+    score = heuristics["score"]
     rep_flags: list[str] = []
+
     if gsb is not None and not gsb["safe"]:
-        rep_score += 40
+        score += 40
         threat = gsb.get("threat", "")
         label = "phishing" if "social" in threat.lower() else threat.replace("_", " ").lower()
         rep_flags.append(f"Google Safe Browsing: {label}")
     if vt is not None and isinstance(vt.get("malicious"), int) and vt["malicious"] > 0:
-        rep_score += 40
+        score += 40
         rep_flags.append(f"VirusTotal: {vt['malicious']} engines flagged it malicious")
     elif vt is not None and isinstance(vt.get("suspicious"), int) and vt["suspicious"] > 0:
-        rep_score += 20
+        score += 20
         rep_flags.append(f"VirusTotal: {vt['suspicious']} engines flagged it suspicious")
 
-    combined = min(heuristics["score"] + rep_score, 100)
+    age_flag = ""
+    if age is not None and age.get("age_days") is not None:
+        days = age["age_days"]
+        if days < 30:
+            score += 25
+            age_flag = f"domain registered only {days} day{'s' if days != 1 else ''} ago (very new)"
+            rep_flags.append(age_flag)
+        elif days < 90:
+            score += 10
+            rep_flags.append(f"domain registered {days} days ago (less than 3 months old)")
+
+    combined = min(score, 100)
     risk_level = "high" if combined >= 60 else "suspicious" if combined >= 25 else "low"
 
     all_flags = rep_flags + heuristics["flags"]

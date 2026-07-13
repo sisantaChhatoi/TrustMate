@@ -1,7 +1,9 @@
 """Standalone link-safety helpers — no FastAPI deps, safe to import from tools."""
 
+import asyncio
 import base64
 import re
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 import httpx
@@ -146,6 +148,82 @@ def analyze_url(url: str) -> dict:
     score = min(score, 100)
     risk_level = "high" if score >= 60 else "suspicious" if score >= 25 else "low"
     return {"flags": flags, "score": score, "risk_level": risk_level}
+
+
+_TWO_LEVEL_TLDS = {
+    "co.uk", "co.in", "co.jp", "co.nz", "co.za", "co.id",
+    "com.au", "com.br", "net.in", "org.in",
+}
+
+
+def _registrable_domain(host: str) -> str:
+    parts = host.split(".")
+    if len(parts) >= 3 and ".".join(parts[-2:]) in _TWO_LEVEL_TLDS:
+        return ".".join(parts[-3:])
+    return ".".join(parts[-2:]) if len(parts) >= 2 else host
+
+
+async def check_domain_age(url: str) -> dict:
+    """Look up domain registration date via RDAP. Free, no API key needed."""
+    try:
+        host = (urlparse(url).hostname or "").lower()
+        domain = _registrable_domain(host)
+        async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
+            r = await client.get(f"https://rdap.org/domain/{domain}")
+            if r.status_code != 200:
+                return {"age_days": None, "created": None, "domain": domain}
+            events = r.json().get("events", [])
+            created_str = next(
+                (e["eventDate"] for e in events if e.get("eventAction") == "registration"),
+                None,
+            )
+            if not created_str:
+                return {"age_days": None, "created": None, "domain": domain}
+            created_dt = datetime.fromisoformat(created_str.replace("Z", "+00:00"))
+            age_days = (datetime.now(timezone.utc) - created_dt).days
+            return {
+                "age_days": age_days,
+                "created": created_dt.strftime("%Y-%m-%d"),
+                "domain": domain,
+            }
+    except Exception:
+        return {"age_days": None, "created": None, "domain": ""}
+
+
+async def check_urlscan(url: str) -> dict:
+    """Submit URL to urlscan.io and poll for verdict. Requires URLSCAN_API_KEY."""
+    if not settings.urlscan_api_key:
+        return {"scanned": False, "malicious": None, "score": None, "brands": [], "note": "no key"}
+    headers = {"API-Key": settings.urlscan_api_key, "Content-Type": "application/json"}
+    try:
+        async with httpx.AsyncClient(timeout=12) as client:
+            r = await client.post(
+                "https://urlscan.io/api/v1/scan/",
+                headers=headers,
+                json={"url": url, "visibility": "unlisted"},
+            )
+            if r.status_code not in (200, 201):
+                return {"scanned": False, "malicious": None, "score": None, "brands": [], "note": "submit failed"}
+            uuid = r.json().get("uuid")
+            if not uuid:
+                return {"scanned": False, "malicious": None, "score": None, "brands": [], "note": "no uuid"}
+
+            result_url = f"https://urlscan.io/api/v1/result/{uuid}/"
+            for _ in range(5):
+                await asyncio.sleep(3)
+                res = await client.get(result_url)
+                if res.status_code == 200:
+                    v = res.json().get("verdicts", {}).get("overall", {})
+                    return {
+                        "scanned": True,
+                        "malicious": v.get("malicious", False),
+                        "score": v.get("score", 0),
+                        "brands": v.get("brands", []),
+                        "note": None,
+                    }
+            return {"scanned": True, "malicious": None, "score": None, "brands": [], "note": "timeout"}
+    except Exception:
+        return {"scanned": False, "malicious": None, "score": None, "brands": [], "note": "error"}
 
 
 async def check_gsb(url: str) -> dict:

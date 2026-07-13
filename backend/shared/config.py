@@ -37,6 +37,7 @@ class Settings(BaseSettings):
 
     google_safe_browsing_key: str = ""
     virustotal_key: str = ""
+    urlscan_api_key: str = ""
 
     stt_provider: str = "sarvam"
     stt_language_code: str = "unknown"

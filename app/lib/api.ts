@@ -95,6 +95,8 @@ export type LinkCheckResult = {
   risk_score: number;
   risk_level: 'low' | 'suspicious' | 'high';
   flags: string[];
+  domain_age: { age_days: number | null; created: string | null; domain: string };
+  urlscan: { scanned: boolean; malicious: boolean | null; score: number | null; brands: string[]; note: string | null };
   google_safe_browsing: { safe: boolean; threat: string | null };
   virustotal: { safe: boolean | null; malicious: number; suspicious: number; note: string | null };
 };

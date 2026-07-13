@@ -226,6 +226,62 @@ async def check_urlscan(url: str) -> dict:
         return {"scanned": False, "malicious": None, "score": None, "brands": [], "note": "error"}
 
 
+async def check_page_content(url: str) -> dict:
+    """Fetch the page and detect credential-harvesting forms and brand impersonation."""
+    try:
+        async with httpx.AsyncClient(
+            timeout=10, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}
+        ) as client:
+            r = await client.get(url)
+            if r.status_code != 200 or "text/html" not in r.headers.get("content-type", ""):
+                return {"available": False, "flags": [], "score": 0}
+
+            from bs4 import BeautifulSoup
+
+            soup = BeautifulSoup(r.text, "html.parser")
+            flags: list[str] = []
+            score = 0
+            host = (urlparse(url).hostname or "").lower()
+
+            # Password / login form
+            if soup.find("input", {"type": "password"}):
+                flags.append("login form detected (asks for password)")
+                score += 25
+
+            # Sensitive input fields — OTP, PIN, card, Aadhaar, PAN
+            _sensitive = {"otp", "pin", "cvv", "card", "account", "aadhar", "aadhaar", "pan"}
+            for inp in soup.find_all("input"):
+                val = " ".join(
+                    filter(None, [inp.get("name"), inp.get("id"), inp.get("placeholder")])
+                ).lower()
+                if any(s in val for s in _sensitive):
+                    flags.append(f"sensitive input field: {val.split()[0] if val else 'unknown'}")
+                    score += 20
+                    break
+
+            # Brand impersonation — brand name in page title but domain doesn't match
+            title = (soup.title.string if soup.title else "").lower()
+            for brand in _BRANDS:
+                if brand in title and brand not in host:
+                    flags.append(f"page claims to be '{brand}' but domain doesn't match")
+                    score += 25
+                    break
+
+            # Form submitting to a different domain
+            for form in soup.find_all("form"):
+                action = form.get("action", "")
+                if action.startswith("http"):
+                    action_host = (urlparse(action).hostname or "").lower()
+                    if action_host and action_host != host:
+                        flags.append(f"form submits data to external domain: {action_host}")
+                        score += 20
+                        break
+
+            return {"available": True, "flags": flags, "score": min(score, 60)}
+    except Exception:
+        return {"available": False, "flags": [], "score": 0}
+
+
 async def check_gsb(url: str) -> dict:
     body = {
         "client": {"clientId": "digital-arrest-shield", "clientVersion": "1.0"},

@@ -287,6 +287,29 @@ function ResultCard({ result }: { result: LinkCheckResult }) {
         </Card>
       )}
 
+      {/* Page Analysis */}
+      {result.page_analysis?.available && (
+        <Card>
+          <View style={{ gap: space.sm }}>
+            <View style={styles.sourceRow}>
+              <Ionicons name="document-text-outline" size={16} color={colors.muted} />
+              <AppText variant="bodyStrong">Page analysis</AppText>
+              <StatusChip safe={result.page_analysis.flags.length === 0} />
+            </View>
+            {result.page_analysis.flags.length > 0 ? (
+              result.page_analysis.flags.map((flag, i) => (
+                <View key={i} style={styles.flagRow}>
+                  <Ionicons name="chevron-forward" size={12} color={colors.danger} />
+                  <AppText variant="caption" style={{ flex: 1 }}>{flag}</AppText>
+                </View>
+              ))
+            ) : (
+              <AppText variant="caption" color={colors.muted}>No suspicious form or content detected</AppText>
+            )}
+          </View>
+        </Card>
+      )}
+
       {/* Google Safe Browsing */}
       <Card>
         <View style={{ gap: space.sm }}>

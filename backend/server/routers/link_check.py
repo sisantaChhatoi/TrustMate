@@ -8,6 +8,7 @@ from server.chatbot.link_safety import (
     analyze_url,
     check_domain_age,
     check_gsb,
+    check_page_content,
     check_urlscan,
     check_vt,
     unshorten,
@@ -29,11 +30,12 @@ async def check_link(
     resolved = await unshorten(url)
     heuristics = analyze_url(resolved)
 
-    gsb, vt, domain_age, urlscan = await asyncio.gather(
+    gsb, vt, domain_age, urlscan, page = await asyncio.gather(
         check_gsb(resolved),
         check_vt(resolved),
         check_domain_age(resolved),
         check_urlscan(resolved),
+        check_page_content(resolved),
         return_exceptions=True,
     )
     if isinstance(gsb, Exception):
@@ -44,6 +46,8 @@ async def check_link(
         domain_age = {"age_days": None, "created": None, "domain": ""}
     if isinstance(urlscan, Exception):
         urlscan = {"scanned": False, "malicious": None, "score": None, "brands": [], "note": "error"}
+    if isinstance(page, Exception):
+        page = {"available": False, "flags": [], "score": 0}
 
     # Build combined score
     score = heuristics["score"]
@@ -67,6 +71,8 @@ async def check_link(
     elif isinstance(urlscan.get("score"), (int, float)) and urlscan["score"] > 50:
         score += 20
 
+    score += page.get("score", 0)
+
     combined_score = min(score, 100)
     risk_level = "high" if combined_score >= 60 else "suspicious" if combined_score >= 25 else "low"
     verdict = "unsafe" if risk_level == "high" else "suspicious" if risk_level == "suspicious" else "safe"
@@ -80,6 +86,7 @@ async def check_link(
         "flags": heuristics["flags"],
         "domain_age": domain_age,
         "urlscan": urlscan,
+        "page_analysis": page,
         "google_safe_browsing": gsb,
         "virustotal": vt,
     }

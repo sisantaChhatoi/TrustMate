@@ -47,7 +47,8 @@ export default function LinkCheckerScreen() {
         <Card>
           <View style={{ gap: space.md }}>
             <AppText variant="caption">
-              Paste a suspicious link to check it for scam signals, phishing patterns, and known threats.
+              Paste a suspicious link to check it for scam signals, phishing patterns, and known
+              threats.
             </AppText>
             <TextInput
               style={styles.input}
@@ -114,7 +115,9 @@ function verdictLabel(verdict: LinkCheckResult['verdict']): string {
   return 'Safe';
 }
 
-function verdictIcon(verdict: LinkCheckResult['verdict']): 'warning' | 'alert-circle' | 'checkmark-circle' {
+function verdictIcon(
+  verdict: LinkCheckResult['verdict'],
+): 'warning' | 'alert-circle' | 'checkmark-circle' {
   if (verdict === 'unsafe') return 'warning';
   if (verdict === 'suspicious') return 'alert-circle';
   return 'checkmark-circle';
@@ -142,7 +145,8 @@ function ResultCard({ result }: { result: LinkCheckResult }) {
       {/* Risk score bar */}
       <Card>
         <View style={{ gap: space.sm }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <AppText variant="bodyStrong">Risk score</AppText>
             <AppText variant="bodyStrong" color={clr}>
               {result.risk_score}/100
@@ -160,8 +164,8 @@ function ResultCard({ result }: { result: LinkCheckResult }) {
             {result.risk_level === 'low'
               ? 'No significant risk signals detected'
               : result.risk_level === 'suspicious'
-              ? 'Suspicious patterns detected — proceed with caution'
-              : 'High-risk — do not open this link'}
+                ? 'Suspicious patterns detected — proceed with caution'
+                : 'High-risk — do not open this link'}
           </AppText>
         </View>
       </Card>
@@ -205,84 +209,95 @@ function ResultCard({ result }: { result: LinkCheckResult }) {
       )}
 
       {/* Domain Age */}
-      {result.domain_age && <Card>
-        <View style={{ gap: space.sm }}>
-          <View style={styles.sourceRow}>
-            <Ionicons name="calendar-outline" size={16} color={colors.muted} />
-            <AppText variant="bodyStrong">Domain age</AppText>
-            {result.domain_age.age_days !== null && (
-              <View
-                style={[
-                  styles.chip,
-                  {
-                    backgroundColor:
-                      result.domain_age.age_days < 30
-                        ? colors.dangerTint
-                        : result.domain_age.age_days < 90
-                        ? colors.amberTint
-                        : colors.successTint,
-                  },
-                ]}>
-                <AppText
-                  variant="label"
-                  color={
-                    result.domain_age.age_days < 30
-                      ? colors.danger
-                      : result.domain_age.age_days < 90
-                      ? colors.amber
-                      : colors.success
-                  }>
-                  {result.domain_age.age_days < 30
-                    ? `${result.domain_age.age_days}d old`
-                    : result.domain_age.age_days < 365
-                    ? `${result.domain_age.age_days}d old`
-                    : `${Math.floor(result.domain_age.age_days / 365)}y old`}
-                </AppText>
-              </View>
-            )}
-          </View>
-          {result.domain_age.age_days !== null ? (
-            <AppText variant="caption" color={colors.muted}>
-              {result.domain_age.domain} registered on {result.domain_age.created}
-              {result.domain_age.age_days < 30
-                ? ' — very new domain, high scam risk'
-                : result.domain_age.age_days < 90
-                ? ' — less than 3 months old'
-                : ' — established domain'}
-            </AppText>
-          ) : (
-            <AppText variant="caption" color={colors.muted}>
-              Could not determine domain age
-            </AppText>
-          )}
-        </View>
-      </Card>}
-
-      {/* ML Classifier */}
-      {result.ml_classifier?.available && result.ml_classifier.label && (result.ml_classifier.confidence ?? 0) >= 0.80 && (
+      {result.domain_age && (
         <Card>
           <View style={{ gap: space.sm }}>
             <View style={styles.sourceRow}>
-              <Ionicons name="hardware-chip-outline" size={16} color={colors.muted} />
-              <AppText variant="bodyStrong">ML classifier</AppText>
-              <View style={[styles.chip, {
-                backgroundColor: result.ml_classifier.label === 'benign'
-                  ? colors.successTint
-                  : colors.dangerTint,
-              }]}>
-                <AppText variant="label" color={
-                  result.ml_classifier.label === 'benign' ? colors.success : colors.danger
-                }>
-                  {result.ml_classifier.label}
-                </AppText>
-              </View>
+              <Ionicons name="calendar-outline" size={16} color={colors.muted} />
+              <AppText variant="bodyStrong">Domain age</AppText>
+              {result.domain_age.age_days !== null && (
+                <View
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor:
+                        result.domain_age.age_days < 30
+                          ? colors.dangerTint
+                          : result.domain_age.age_days < 90
+                            ? colors.amberTint
+                            : colors.successTint,
+                    },
+                  ]}>
+                  <AppText
+                    variant="label"
+                    color={
+                      result.domain_age.age_days < 30
+                        ? colors.danger
+                        : result.domain_age.age_days < 90
+                          ? colors.amber
+                          : colors.success
+                    }>
+                    {result.domain_age.age_days < 30
+                      ? `${result.domain_age.age_days}d old`
+                      : result.domain_age.age_days < 365
+                        ? `${result.domain_age.age_days}d old`
+                        : `${Math.floor(result.domain_age.age_days / 365)}y old`}
+                  </AppText>
+                </View>
+              )}
             </View>
-            <AppText variant="caption" color={colors.muted}>
-              Confidence: {((result.ml_classifier.confidence ?? 0) * 100).toFixed(0)}%
-            </AppText>
+            {result.domain_age.age_days !== null ? (
+              <AppText variant="caption" color={colors.muted}>
+                {result.domain_age.domain} registered on {result.domain_age.created}
+                {result.domain_age.age_days < 30
+                  ? ' — very new domain, high scam risk'
+                  : result.domain_age.age_days < 90
+                    ? ' — less than 3 months old'
+                    : ' — established domain'}
+              </AppText>
+            ) : (
+              <AppText variant="caption" color={colors.muted}>
+                Could not determine domain age
+              </AppText>
+            )}
           </View>
         </Card>
       )}
+
+      {/* ML Classifier */}
+      {result.ml_classifier?.available &&
+        result.ml_classifier.label &&
+        (result.ml_classifier.confidence ?? 0) >= 0.8 && (
+          <Card>
+            <View style={{ gap: space.sm }}>
+              <View style={styles.sourceRow}>
+                <Ionicons name="hardware-chip-outline" size={16} color={colors.muted} />
+                <AppText variant="bodyStrong">ML classifier</AppText>
+                <View
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor:
+                        result.ml_classifier.label === 'benign'
+                          ? colors.successTint
+                          : colors.dangerTint,
+                    },
+                  ]}>
+                  <AppText
+                    variant="label"
+                    color={
+                      result.ml_classifier.label === 'benign' ? colors.success : colors.danger
+                    }>
+                    {result.ml_classifier.label}
+                  </AppText>
+                </View>
+              </View>
+              <AppText variant="caption" color={colors.muted}>
+                Confidence: {((result.ml_classifier.confidence ?? 0) * 100).toFixed(0)}%
+              </AppText>
+            </View>
+          </Card>
+        )}
 
       {/* Page Analysis */}
       {result.page_analysis?.available && (
@@ -297,11 +312,15 @@ function ResultCard({ result }: { result: LinkCheckResult }) {
               result.page_analysis.flags.map((flag, i) => (
                 <View key={i} style={styles.flagRow}>
                   <Ionicons name="chevron-forward" size={12} color={colors.danger} />
-                  <AppText variant="caption" style={{ flex: 1 }}>{flag}</AppText>
+                  <AppText variant="caption" style={{ flex: 1 }}>
+                    {flag}
+                  </AppText>
                 </View>
               ))
             ) : (
-              <AppText variant="caption" color={colors.muted}>No suspicious form or content detected</AppText>
+              <AppText variant="caption" color={colors.muted}>
+                No suspicious form or content detected
+              </AppText>
             )}
           </View>
         </Card>
@@ -360,7 +379,9 @@ function ResultCard({ result }: { result: LinkCheckResult }) {
             </View>
           )}
           {result.virustotal.note === 'queued' && (
-            <AppText variant="caption">URL submitted for scanning. Check back in a few minutes.</AppText>
+            <AppText variant="caption">
+              URL submitted for scanning. Check back in a few minutes.
+            </AppText>
           )}
         </View>
       </Card>

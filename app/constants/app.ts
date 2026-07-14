@@ -1,4 +1,4 @@
-export const APP_NAME = 'CallGuard';
+export const APP_NAME = 'TrustMate';
 
 export const AGENT_PHONE_NO = '+15106501647';
 

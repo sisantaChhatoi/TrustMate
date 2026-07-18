@@ -24,6 +24,8 @@ class NotificationService:
             "title": title,
             "body": body,
             "sound": "default",
+            "channelId": "default",
+            "priority": "high",
             "data": data or {},
         }
         async with httpx.AsyncClient(timeout=10) as client:

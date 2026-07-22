@@ -1,4 +1,4 @@
-# 🛡️ cybersec-agent
+# 🛡️ TrustMate
 
 Real-time protection against phone and chat scams, tuned for Indian users
 (Hindi / English / Hinglish and the 22 official languages). 🇮🇳
